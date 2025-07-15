@@ -6,7 +6,7 @@ Web应用模块
 使用浏览器摄像头进行分析，支持多用户
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,8 +28,8 @@ import ssl
 import os
 import ipaddress
 
-from complete_analyzer import CompleteAnalyzer
-from database import DatabaseManager
+from src.complete_analyzer import CompleteAnalyzer
+from src.database import DatabaseManager
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -293,8 +293,17 @@ class WebApp:
             return self._get_main_page()
         
         @self.app.post("/api/create-session")
-        async def create_session(username: str = None):
+        async def create_session(request: Request):
             """创建用户会话"""
+            username = None
+            try:
+                # 尝试解析JSON请求体
+                body = await request.json()
+                username = body.get("username") if body else None
+            except:
+                # 如果解析失败，username保持为None
+                pass
+            
             user_id = str(uuid.uuid4())
             session = UserSession(user_id, username)
             self.user_sessions[user_id] = session
@@ -525,6 +534,82 @@ class WebApp:
             except Exception as e:
                 logger.error(f"获取分析记录详情失败: {e}")
                 raise HTTPException(status_code=500, detail=f"获取分析记录详情失败: {str(e)}")
+        
+        @self.app.post("/api/analyze-frame")
+        async def analyze_frame(request: Request):
+            """分析单个视频帧（移动端）"""
+            try:
+                form = await request.form()
+                user_id = form.get("user_id")
+                frame_file = form.get("frame")
+                
+                if not user_id or not frame_file:
+                    raise HTTPException(status_code=400, detail="缺少必要参数")
+                
+                if user_id not in self.user_sessions:
+                    raise HTTPException(status_code=404, detail="用户会话不存在")
+                
+                session = self.user_sessions[user_id]
+                
+                # 读取图像数据
+                frame_data = await frame_file.read()
+                
+                # 转换为numpy数组
+                import numpy as np
+                import cv2
+                
+                nparr = np.frombuffer(frame_data, np.uint8)
+                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
+                if frame is None:
+                    raise HTTPException(status_code=400, detail="无效的图像数据")
+                
+                # 使用分析器处理帧
+                if session.analyzer is None:
+                    session.analyzer = CompleteAnalyzer()
+                
+                result = session.analyzer.analyze_frame(frame)
+                
+                # 更新会话统计
+                session.frame_count += 1
+                session.last_activity = datetime.now()
+                
+                # 提取人脸信息
+                faces = []
+                if result and 'faces' in result:
+                    for face in result['faces']:
+                        face_info = {
+                            'box': {
+                                'x': int(face.get('bbox', [0, 0, 0, 0])[0]),
+                                'y': int(face.get('bbox', [0, 0, 0, 0])[1]),
+                                'width': int(face.get('bbox', [0, 0, 0, 0])[2]),
+                                'height': int(face.get('bbox', [0, 0, 0, 0])[3])
+                            }
+                        }
+                        
+                        if 'age' in face:
+                            face_info['age'] = float(face['age'])
+                        if 'gender' in face:
+                            face_info['gender'] = face['gender']
+                        
+                        faces.append(face_info)
+                
+                # 构建响应
+                response_data = {
+                    "status": "success",
+                    "faces": faces,
+                    "frame_count": session.frame_count
+                }
+                
+                # 添加统计数据
+                if result and 'stats' in result:
+                    response_data['stats'] = result['stats']
+                
+                return response_data
+                
+            except Exception as e:
+                logger.error(f"分析帧失败: {e}")
+                raise HTTPException(status_code=500, detail="分析帧失败")
         
         @self.app.get("/api/records/{user_id}")
         async def get_analysis_records(user_id: str, limit: int = Query(20, ge=1, le=100)):

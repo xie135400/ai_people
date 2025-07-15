@@ -291,3 +291,9 @@ ai_poeple/
 项目维护者 - [@yourusername](https://github.com/xie135400)
 
 项目链接: [https://github.com/yourusername/ai_people](https://github.com/xie135400/ai_people) 
+
+如果websocet错误需要执行
+```
+pip install 'uvicorn[standard]' websockets
+pip install websockets
+```
