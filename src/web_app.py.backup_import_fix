@@ -28,8 +28,8 @@ import ssl
 import os
 import ipaddress
 
-from complete_analyzer import CompleteAnalyzer
-from database import DatabaseManager
+from .complete_analyzer import CompleteAnalyzer
+from .database import DatabaseManager
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -480,83 +480,6 @@ class WebApp:
                     del self.websocket_connections[user_id]
                 logger.info(f"WebSocket连接已移除: {session.username}")
     
-        @self.app.get("/api/records/all")
-        async def get_all_analysis_records(limit: int = Query(20, ge=1, le=100)):
-            """获取所有用户的分析记录列表"""
-            try:
-                db = self.db
-                # 获取所有记录，不限制用户
-                records = db.get_all_analysis_records(limit)
-                
-                # 简化记录数据以减少传输量
-                simplified_records = []
-                for record in records:
-                    record_data = {
-                        "id": record.get("id"),
-                        "record_name": record.get("record_name"),
-                        "timestamp": record.get("timestamp"),
-                        "total_people": record.get("total_people", 0),
-                        "active_tracks": record.get("active_tracks", 0),
-                        "avg_age": record.get("avg_age"),
-                        "male_count": record.get("male_count", 0),
-                        "female_count": record.get("female_count", 0),
-                        "additional_data": record.get("additional_data", {})
-                    }
-                    simplified_records.append(record_data)
-                
-                return {"records": simplified_records}
-            except Exception as e:
-                logger.error(f"获取所有分析记录失败: {e}")
-                raise HTTPException(status_code=500, detail=f"获取分析记录失败: {str(e)}")
-        
-        @self.app.get("/api/record/all/{record_id}")
-        async def get_all_analysis_record_detail(record_id: int):
-            """获取任意分析记录详情"""
-            try:
-                db = self.db
-                record = db.get_analysis_record(record_id)
-                
-                if not record:
-                    raise HTTPException(status_code=404, detail=f"未找到ID为{record_id}的分析记录")
-                
-                return {"record": record}
-            except HTTPException:
-                raise
-            except Exception as e:
-                logger.error(f"获取分析记录详情失败: {e}")
-                raise HTTPException(status_code=500, detail=f"获取分析记录详情失败: {str(e)}")
-        
-        @self.app.get("/api/records/{user_id}")
-        async def get_analysis_records(user_id: str, limit: int = Query(20, ge=1, le=100)):
-            """获取指定用户的分析记录列表"""
-            if user_id not in self.user_sessions:
-                raise HTTPException(status_code=404, detail="用户会话不存在")
-            
-            session = self.user_sessions[user_id]
-            try:
-                db = self.db
-                records = db.get_analysis_records(user_id, limit)
-                
-                simplified_records = []
-                for record in records:
-                    record_data = {
-                        "id": record.get("id"),
-                        "record_name": record.get("record_name"),
-                        "timestamp": record.get("timestamp"),
-                        "total_people": record.get("total_people", 0),
-                        "active_tracks": record.get("active_tracks", 0),
-                        "avg_age": record.get("avg_age"),
-                        "male_count": record.get("male_count", 0),
-                        "female_count": record.get("female_count", 0),
-                        "additional_data": record.get("additional_data", {})
-                    }
-                    simplified_records.append(record_data)
-                
-                return {"records": simplified_records}
-            except Exception as e:
-                logger.error(f"获取用户 {user_id} 分析记录失败: {e}")
-                raise HTTPException(status_code=500, detail=f"获取用户 {user_id} 分析记录失败: {str(e)}")
-    
     def _get_default_stats(self, username: str = "未知用户"):
         """获取默认统计数据"""
         return {
@@ -881,7 +804,6 @@ class WebApp:
                     <div class="controls">
                         <button id="startBtn" class="btn">开始分析</button>
                         <button id="stopBtn" class="btn stop">停止分析</button>
-                        <button id="recordsBtn" class="btn" style="background: #4299e1;">查看分析记录</button>
                         <button id="logoutBtn" class="btn" style="background: #718096;">退出登录</button>
                         <span id="status" class="status stopped">已停止</span>
                     </div>
@@ -1024,7 +946,6 @@ class WebApp:
                 const logoutBtn = document.getElementById('logoutBtn');
                 const startBtn = document.getElementById('startBtn');
                 const stopBtn = document.getElementById('stopBtn');
-                const recordsBtn = document.getElementById('recordsBtn'); // 新增记录按钮
                 const localVideo = document.getElementById('localVideo');
                 const processedVideo = document.getElementById('processedVideo');
                 const cameraError = document.getElementById('cameraError');
@@ -1489,12 +1410,6 @@ class WebApp:
                             .catch(error => console.error('获取统计数据失败:', error));
                     }
                 }, 2000);
-                
-                // 查看分析记录按钮
-                recordsBtn.onclick = function() {
-                    // 打开分析记录查看页面
-                    window.open('/static/records.html', '_blank');
-                };
                 
                 // 初始化
                 updateButtons();

@@ -8,7 +8,7 @@
 import sqlite3
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, asdict
 import os
@@ -681,6 +681,47 @@ class DatabaseManager:
                 stats['duration'] = None
         
         return stats
+    
+    def get_all_analysis_records(self, limit: int = 100):
+        """获取所有分析记录"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                SELECT ar.*, s.session_name 
+                FROM analysis_records ar
+                LEFT JOIN sessions s ON ar.session_id = s.id
+                ORDER BY ar.timestamp DESC
+                LIMIT ?
+            """, (limit,))
+            
+            records = []
+            for row in cursor.fetchall():
+                record = {
+                    "id": row[0],
+                    "session_id": row[1],
+                    "record_name": row[2],
+                    "timestamp": row[3],
+                    "total_people": row[4],
+                    "active_tracks": row[5],
+                    "avg_age": row[6],
+                    "male_count": row[7],
+                    "female_count": row[8],
+                    "avg_dwell_time": row[9],
+                    "engagement_score": row[10],
+                    "shopper_count": row[11],
+                    "browser_count": row[12],
+                    "zone_data": json.loads(row[13]) if row[13] else {},
+                    "additional_data": json.loads(row[14]) if row[14] else {},
+                    "created_at": row[15],
+                    "session_name": row[16] if len(row) > 16 else None
+                }
+                records.append(record)
+            
+            return records
+            
+        except Exception as e:
+            logger.error(f"获取所有分析记录失败: {e}")
+            return []
     
     def cleanup_old_data(self, days: int = 30):
         """

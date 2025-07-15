@@ -4,697 +4,479 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>分析记录查看器</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            padding-top: 20px;
-            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-        .record-card {
-            margin-bottom: 15px;
-            transition: all 0.3s;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .record-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
         }
-        .record-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .header h1 {
+            color: #667eea;
+            margin: 0;
         }
-        .chart-container {
-            height: 250px;
+        .controls {
             margin-bottom: 20px;
-        }
-        .loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255,255,255,0.8);
             display: flex;
-            justify-content: center;
+            gap: 10px;
             align-items: center;
-            z-index: 9999;
         }
-        .spinner-border {
-            width: 3rem;
-            height: 3rem;
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .btn.secondary {
+            background: #68d391;
+        }
+        .btn.secondary:hover {
+            background: #48bb78;
+        }
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .records-table th,
+        .records-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .records-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+        .records-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .records-table tr:hover {
+            background: #e3f2fd;
         }
         .record-detail {
             display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .detail-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .detail-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #2d7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .age-distribution {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .age-group {
+            background: #e3f2fd;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .page-btn {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .page-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        .page-btn:hover {
+            background: #e9ecef;
+        }
+        .page-btn.active:hover {
+            background: #5a67d8;
+        }
+        
+        /* 弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: #667eea;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+        }
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        .modal-footer {
+            text-align: right;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h1 class="card-title">AI人流分析记录</h1>
-                        <p class="card-text">查看和管理分析记录，每条记录包含详细的人流分析数据。</p>
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <button id="refreshBtn" class="btn btn-primary">刷新记录</button>
-                                <button id="createRecordBtn" class="btn btn-success ms-2">创建记录</button>
-                            </div>
-                            <div>
-                                <a href="/" class="btn btn-outline-secondary">返回主页</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="header">
+            <h1>📊 AI人流分析记录查看器</h1>
+            <p>查看和管理历史分析记录</p>
         </div>
-
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">人数统计</h5>
-                        <div class="chart-container">
-                            <canvas id="peopleChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">性别分布</h5>
-                        <div class="chart-container">
-                            <canvas id="genderChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="loadRecords()">刷新记录</button>
+            <button class="btn secondary" onclick="goBack()">返回主页</button>
+            <span id="recordCount" style="margin-left: 20px; color: #666;"></span>
         </div>
-
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">年龄分布</h5>
-                        <div class="chart-container">
-                            <canvas id="ageChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        
+        <div id="loading" class="loading">正在加载记录...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
+        
+        <div id="recordsContainer" style="display: none;">
+            <table class="records-table" id="recordsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>记录名称</th>
+                        <th>时间</th>
+                        <th>总人数</th>
+                        <th>平均年龄</th>
+                        <th>男性</th>
+                        <th>女性</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                </tbody>
+            </table>
+            
+            <div class="pagination" id="pagination"></div>
         </div>
-
-        <div class="row">
-            <div class="col-md-12">
-                <h3>分析记录列表</h3>
-                <div id="recordsList" class="row">
-                    <!-- 记录将在这里动态加载 -->
-                </div>
+        
+        <div id="recordDetail" class="record-detail"></div>
+    </div>
+    
+    <!-- 弹窗模态框 -->
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">记录详情</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- 详情内容将在这里显示 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">关闭</button>
             </div>
         </div>
     </div>
-
-    <!-- 记录详情模态框 -->
-    <div class="modal fade" id="recordDetailModal" tabindex="-1" aria-labelledby="recordDetailModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="recordDetailModalLabel">记录详情</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="recordDetailContent">
-                        <!-- 记录详情将在这里动态加载 -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-primary" id="exportRecordBtn">导出记录</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 加载指示器 -->
-    <div class="loading" id="loadingIndicator">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">加载中...</span>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script>
-        // 全局变量
-        let userId = null;
-        let recordsList = [];
-        let currentRecordId = null;
-        let peopleChart = null;
-        let genderChart = null;
-        let ageChart = null;
-
-        // 页面加载完成后执行
-        document.addEventListener('DOMContentLoaded', function() {
-            // 从URL获取用户ID
-            const urlParams = new URLSearchParams(window.location.search);
-            userId = urlParams.get('user_id');
-            
-            if (!userId) {
-                alert('未提供用户ID，请返回主页重新开始');
-                window.location.href = '/';
-                return;
-            }
-            
-            // 初始化图表
-            initCharts();
-            
-            // 检查分析状态
-            checkAnalysisStatus();
-            
-            // 加载记录列表
-            loadRecords();
-            
-            // 事件监听
-            document.getElementById('refreshBtn').addEventListener('click', loadRecords);
-            document.getElementById('createRecordBtn').addEventListener('click', createRecord);
-            document.getElementById('exportRecordBtn').addEventListener('click', exportCurrentRecord);
-        });
-
-        // 初始化图表
-        function initCharts() {
-            // 人数统计图表
-            const peopleCtx = document.getElementById('peopleChart').getContext('2d');
-            peopleChart = new Chart(peopleCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: '总人数',
-                        data: [],
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1,
-                        fill: false
-                    }, {
-                        label: '活跃人数',
-                        data: [],
-                        borderColor: 'rgb(255, 99, 132)',
-                        tension: 0.1,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-            
-            // 性别分布图表 - 修改为饼图
-            const genderCtx = document.getElementById('genderChart').getContext('2d');
-            genderChart = new Chart(genderCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['男性', '女性'],
-                    datasets: [{
-                        data: [0, 0],
-                        backgroundColor: [
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 99, 132, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgb(54, 162, 235)',
-                            'rgb(255, 99, 132)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value}人 (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 年龄分布图表 - 修改为饼图
-            const ageCtx = document.getElementById('ageChart').getContext('2d');
-            ageChart = new Chart(ageCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['0-17', '18-25', '26-35', '36-45', '46-55', '56-65', '65+'],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 206, 86, 0.7)',
-                            'rgba(75, 192, 192, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 159, 64, 0.7)',
-                            'rgba(199, 199, 199, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgb(255, 99, 132)',
-                            'rgb(54, 162, 235)',
-                            'rgb(255, 206, 86)',
-                            'rgb(75, 192, 192)',
-                            'rgb(153, 102, 255)',
-                            'rgb(255, 159, 64)',
-                            'rgb(199, 199, 199)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value}人 (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+        let currentPage = 1;
+        let totalRecords = 0;
+        const recordsPerPage = 10;
+        let currentUserId = null;
+        
+        // 从URL参数获取用户ID
+        const urlParams = new URLSearchParams(window.location.search);
+        currentUserId = urlParams.get('user_id');
+        
+        function showError(message) {
+            document.getElementById('error').textContent = message;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('success').style.display = 'none';
         }
-
-        // 检查分析状态
-        async function checkAnalysisStatus() {
-            try {
-                const response = await fetch(`/api/status/${userId}`);
-                const data = await response.json();
-                
-                if (!data.is_running) {
-                    // 如果分析未运行，禁用创建按钮
-                    const createBtn = document.getElementById('createRecordBtn');
-                    createBtn.disabled = true;
-                    createBtn.title = '分析未运行，无法创建新记录';
-                    createBtn.classList.add('btn-secondary');
-                    createBtn.classList.remove('btn-success');
-                }
-            } catch (error) {
-                console.error('检查分析状态失败:', error);
-            }
+        
+        function showSuccess(message) {
+            document.getElementById('success').textContent = message;
+            document.getElementById('success').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
         }
-
-        // 加载记录列表
+        
+        function hideMessages() {
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('success').style.display = 'none';
+        }
+        
         async function loadRecords() {
-            showLoading(true);
+            hideMessages();
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('recordsContainer').style.display = 'none';
+            
             try {
-                const response = await fetch(`/api/records/${userId}`);
+                let url = '/api/records/all?limit=100';
+                if (currentUserId) {
+                    url = `/api/records/${currentUserId}?limit=100`;
+                }
+                
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.records) {
-                    recordsList = data.records;
-                    renderRecordsList();
-                    updateCharts();
+                    displayRecords(data.records);
+                    totalRecords = data.records.length;
+                    document.getElementById('recordCount').textContent = `共 ${totalRecords} 条记录`;
+                } else {
+                    showError('获取记录失败');
                 }
             } catch (error) {
-                console.error('加载记录失败:', error);
-                alert('加载记录失败，请重试');
+                showError('网络错误: ' + error.message);
             } finally {
-                showLoading(false);
+                document.getElementById('loading').style.display = 'none';
             }
         }
-
-        // 渲染记录列表
-        function renderRecordsList() {
-            const recordsContainer = document.getElementById('recordsList');
-            recordsContainer.innerHTML = '';
+        
+        function displayRecords(records) {
+            const tbody = document.getElementById('recordsBody');
+            tbody.innerHTML = '';
             
-            if (recordsList.length === 0) {
-                recordsContainer.innerHTML = '<div class="col-12"><div class="alert alert-info">暂无分析记录</div></div>';
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666;">暂无分析记录</td></tr>';
+                document.getElementById('recordsContainer').style.display = 'block';
                 return;
             }
             
-            recordsList.forEach(record => {
-                const timestamp = new Date(record.timestamp);
-                const formattedTime = timestamp.toLocaleString();
-                
-                const recordCard = document.createElement('div');
-                recordCard.className = 'col-md-6 col-lg-4';
-                recordCard.innerHTML = `
-                    <div class="card record-card">
-                        <div class="card-body">
-                            <div class="record-header">
-                                <h5 class="card-title">${record.record_name}</h5>
-                                <span class="badge bg-primary">#${record.id}</span>
-                            </div>
-                            <h6 class="card-subtitle mb-2 text-muted">${formattedTime}</h6>
-                            <p class="card-text">
-                                总人数: ${record.total_people}<br>
-                                活跃人数: ${record.active_tracks}<br>
-                                平均年龄: ${record.avg_age ? record.avg_age.toFixed(1) : 'N/A'}<br>
-                                性别: 男 ${record.male_count} / 女 ${record.female_count}
-                            </p>
-                            <button class="btn btn-sm btn-outline-primary view-detail-btn" data-record-id="${record.id}">
-                                查看详情
-                            </button>
-                        </div>
-                    </div>
+            records.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${record.id}</td>
+                    <td>${record.record_name || 'N/A'}</td>
+                    <td>${formatTime(record.timestamp)}</td>
+                    <td>${record.total_people || 0}</td>
+                    <td>${record.avg_age ? record.avg_age.toFixed(1) : 'N/A'}</td>
+                    <td>${record.male_count || 0}</td>
+                    <td>${record.female_count || 0}</td>
+                    <td>
+                        <button class="btn" onclick="viewRecordDetail(${record.id})" style="padding: 5px 10px; font-size: 12px;">详情</button>
+                    </td>
                 `;
-                
-                recordsContainer.appendChild(recordCard);
+                tbody.appendChild(row);
             });
             
-            // 添加详情按钮事件
-            document.querySelectorAll('.view-detail-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const recordId = this.getAttribute('data-record-id');
-                    showRecordDetail(recordId);
-                });
-            });
+            document.getElementById('recordsContainer').style.display = 'block';
         }
-
-        // 更新图表数据
-        function updateCharts() {
-            if (recordsList.length === 0) return;
-            
-            // 准备数据
-            const labels = recordsList.map(record => {
-                const date = new Date(record.timestamp);
-                return date.toLocaleTimeString();
-            }).reverse();
-            
-            const totalPeople = recordsList.map(record => record.total_people).reverse();
-            const activeTracks = recordsList.map(record => record.active_tracks).reverse();
-            
-            // 更新人数图表
-            peopleChart.data.labels = labels;
-            peopleChart.data.datasets[0].data = totalPeople;
-            peopleChart.data.datasets[1].data = activeTracks;
-            peopleChart.update();
-            
-            // 更新性别图表 - 使用最新记录的数据
-            if (recordsList.length > 0) {
-                const latestRecord = recordsList[0];
-                // 性别分布数据
-                const maleCount = latestRecord.male_count || 0;
-                const femaleCount = latestRecord.female_count || 0;
-                
-                genderChart.data.datasets[0].data = [maleCount, femaleCount];
-                genderChart.update();
-            }
-            
-            // 更新年龄分布图表 - 使用最新的记录
-            if (recordsList.length > 0 && recordsList[0].additional_data && recordsList[0].additional_data.age_distribution) {
-                const latestRecord = recordsList[0];
-                const ageDistribution = latestRecord.additional_data.age_distribution;
-                
-                // 准备年龄分布数据
-                const ageData = [
-                    ageDistribution['0-17'] || 0,
-                    ageDistribution['18-25'] || 0,
-                    ageDistribution['26-35'] || 0,
-                    ageDistribution['36-45'] || 0,
-                    ageDistribution['46-55'] || 0,
-                    ageDistribution['56-65'] || 0,
-                    ageDistribution['65+'] || 0
-                ];
-                
-                ageChart.data.datasets[0].data = ageData;
-                ageChart.update();
-            }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN');
         }
-
-        // 显示记录详情
-        async function showRecordDetail(recordId) {
-            showLoading(true);
-            currentRecordId = recordId;
-            
+        
+        async function viewRecordDetail(recordId) {
             try {
-                const response = await fetch(`/api/record/${userId}/${recordId}`);
+                let url = `/api/record/all/${recordId}`;
+                if (currentUserId) {
+                    url = `/api/record/${currentUserId}/${recordId}`;
+                }
+                
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.record) {
-                    const record = data.record;
-                    const timestamp = new Date(record.timestamp);
-                    const formattedTime = timestamp.toLocaleString();
-                    
-                    // 格式化区域数据和附加数据
-                    let zoneDataHtml = '<p>无区域数据</p>';
-                    if (record.zone_data && Object.keys(record.zone_data).length > 0) {
-                        zoneDataHtml = '<ul>';
-                        for (const [zoneName, zoneInfo] of Object.entries(record.zone_data)) {
-                            zoneDataHtml += `<li>${zoneName}: 访问 ${zoneInfo.total_visits || 0} 次, 
-                                           独立访客 ${zoneInfo.unique_visitors || 0} 人,
-                                           平均停留 ${(zoneInfo.avg_dwell_time || 0).toFixed(1)} 秒</li>`;
-                        }
-                        zoneDataHtml += '</ul>';
-                    }
-                    
-                    // 格式化年龄分布数据
-                    let ageDistributionHtml = '<p>无年龄分布数据</p>';
-                    if (record.additional_data && record.additional_data.age_distribution) {
-                        const ageDistribution = record.additional_data.age_distribution;
-                        
-                        // 创建表格展示年龄分布
-                        ageDistributionHtml = `
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>年龄段</th>
-                                        <th>人数</th>
-                                        <th>百分比</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        `;
-                        
-                        // 计算总人数
-                        const totalPeople = Object.values(ageDistribution).reduce((sum, count) => sum + count, 0);
-                        
-                        // 添加每个年龄段的数据
-                        const ageRanges = ['0-17', '18-25', '26-35', '36-45', '46-55', '56-65', '65+'];
-                        for (const range of ageRanges) {
-                            const count = ageDistribution[range] || 0;
-                            const percentage = totalPeople > 0 ? (count / totalPeople * 100).toFixed(1) : '0.0';
-                            
-                            ageDistributionHtml += `
-                                <tr>
-                                    <td>${range}</td>
-                                    <td>${count}</td>
-                                    <td>${percentage}%</td>
-                                </tr>
-                            `;
-                        }
-                        
-                        ageDistributionHtml += '</tbody></table>';
-                    }
-                    
-                    let additionalDataHtml = '<p>无附加数据</p>';
-                    if (record.additional_data && Object.keys(record.additional_data).length > 0) {
-                        // 复制附加数据对象，移除已经单独显示的年龄分布
-                        const additionalData = {...record.additional_data};
-                        delete additionalData.age_distribution;
-                        
-                        if (Object.keys(additionalData).length > 0) {
-                            additionalDataHtml = '<pre>' + JSON.stringify(additionalData, null, 2) + '</pre>';
-                        } else {
-                            additionalDataHtml = '<p>无其他附加数据</p>';
-                        }
-                    }
-                    
-                    // 填充模态框内容
-                    document.getElementById('recordDetailContent').innerHTML = `
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h4>${record.record_name}</h4>
-                                <p class="text-muted">${formattedTime}</p>
-                                
-                                <h5>基本信息</h5>
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td>记录ID</td>
-                                        <td>${record.id}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>会话ID</td>
-                                        <td>${record.session_id}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>总人数</td>
-                                        <td>${record.total_people}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>活跃人数</td>
-                                        <td>${record.active_tracks}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>平均年龄</td>
-                                        <td>${record.avg_age ? record.avg_age.toFixed(1) : 'N/A'}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>性别分布</td>
-                                        <td>男 ${record.male_count} / 女 ${record.female_count}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <h5>行为分析</h5>
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td>平均停留时间</td>
-                                        <td>${record.avg_dwell_time.toFixed(1)} 秒</td>
-                                    </tr>
-                                    <tr>
-                                        <td>参与度评分</td>
-                                        <td>${record.engagement_score.toFixed(2)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>购物者数量</td>
-                                        <td>${record.shopper_count}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>浏览者数量</td>
-                                        <td>${record.browser_count}</td>
-                                    </tr>
-                                </table>
-                                
-                                <h5>区域数据</h5>
-                                ${zoneDataHtml}
-                            </div>
-                        </div>
-                        
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <h5>年龄分布</h5>
-                                ${ageDistributionHtml}
-                            </div>
-                        </div>
-                        
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <h5>附加数据</h5>
-                                ${additionalDataHtml}
-                            </div>
-                        </div>
-                    `;
-                    
-                    // 显示模态框
-                    const modal = new bootstrap.Modal(document.getElementById('recordDetailModal'));
-                    modal.show();
-                }
-            } catch (error) {
-                console.error('加载记录详情失败:', error);
-                alert('加载记录详情失败，请重试');
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // 创建新记录
-        async function createRecord() {
-            if (!confirm('确定要创建新的分析记录吗？')) return;
-            
-            showLoading(true);
-            try {
-                const recordName = prompt('请输入记录名称 (可选):', `手动记录_${new Date().toLocaleTimeString()}`);
-                
-                if (recordName !== null) {
-                    const response = await fetch(`/api/create-record/${userId}?record_name=${encodeURIComponent(recordName)}`, {
-                        method: 'POST'
-                    });
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || `服务器错误 (${response.status})`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        alert(`成功创建分析记录: ${data.message}`);
-                        loadRecords();
-                    } else {
-                        alert(`创建记录失败: ${data.message || '未知错误'}`);
-                    }
-                }
-            } catch (error) {
-                console.error('创建记录失败:', error);
-                alert(`创建记录失败: ${error.message || '未知错误'}`);
-                
-                // 如果是因为分析未运行，禁用创建按钮
-                if (error.message && error.message.includes('分析未运行')) {
-                    document.getElementById('createRecordBtn').disabled = true;
-                    document.getElementById('createRecordBtn').title = '分析未运行，无法创建新记录';
-                }
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // 导出当前记录
-        async function exportCurrentRecord() {
-            if (!currentRecordId) {
-                alert('请先选择一条记录');
-                return;
-            }
-            
-            showLoading(true);
-            try {
-                const response = await fetch(`/api/export-record/${userId}?record_id=${currentRecordId}`, {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success && data.download_url) {
-                    // 创建下载链接
-                    const a = document.createElement('a');
-                    a.href = data.download_url;
-                    a.download = data.filepath.split('/').pop();
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    
-                    alert('记录导出成功，开始下载');
+                    displayRecordDetail(data.record);
                 } else {
-                    alert(`导出记录失败: ${data.message || '未知错误'}`);
+                    showError('获取记录详情失败');
                 }
             } catch (error) {
-                console.error('导出记录失败:', error);
-                alert('导出记录失败，请重试');
-            } finally {
-                showLoading(false);
+                showError('网络错误: ' + error.message);
             }
         }
-
-        // 显示/隐藏加载指示器
-        function showLoading(show) {
-            document.getElementById('loadingIndicator').style.display = show ? 'flex' : 'none';
+        
+        function displayRecordDetail(record) {
+            // 解析additional_data
+            let additionalData = {};
+            try {
+                additionalData = typeof record.additional_data === 'string' 
+                    ? JSON.parse(record.additional_data) 
+                    : record.additional_data || {};
+            } catch (e) {
+                console.error('解析additional_data失败:', e);
+            }
+            
+            // 年龄分布
+            const ageDistribution = additionalData.age_distribution || {};
+            const ageHtml = Object.entries(ageDistribution)
+                .map(([age, count]) => `<span class="age-group">${age}: ${count}</span>`)
+                .join('');
+            
+            // 设置弹窗标题
+            document.getElementById('modalTitle').textContent = `记录详情 (ID: ${record.id})`;
+            
+            // 设置弹窗内容
+            document.getElementById('modalBody').innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-value">${record.total_people || 0}</div>
+                        <div class="detail-label">总人数</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-value">${record.active_tracks || 0}</div>
+                        <div class="detail-label">当前人数</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-value">${record.avg_age ? record.avg_age.toFixed(1) : 'N/A'}</div>
+                        <div class="detail-label">平均年龄</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-value">${record.male_count || 0}</div>
+                        <div class="detail-label">男性人数</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-value">${record.female_count || 0}</div>
+                        <div class="detail-label">女性人数</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-value">${record.avg_dwell_time ? record.avg_dwell_time.toFixed(1) + 's' : 'N/A'}</div>
+                        <div class="detail-label">平均停留时间</div>
+                    </div>
+                </div>
+                
+                <h4>年龄分布</h4>
+                <div class="age-distribution">
+                    ${ageHtml || '<span class="age-group">暂无数据</span>'}
+                </div>
+                
+                <h4>记录信息</h4>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
+                    <p><strong>记录名称:</strong> ${record.record_name || 'N/A'}</p>
+                    <p><strong>创建时间:</strong> ${formatTime(record.timestamp)}</p>
+                    <p><strong>帧数:</strong> ${additionalData.frame_count || 'N/A'}</p>
+                    <p><strong>检测到的人脸:</strong> ${additionalData.faces_detected || 'N/A'}</p>
+                    <p><strong>参与度评分:</strong> ${record.engagement_score ? record.engagement_score.toFixed(2) : 'N/A'}</p>
+                    <p><strong>购物者数量:</strong> ${record.shopper_count || 'N/A'}</p>
+                    <p><strong>浏览者数量:</strong> ${record.browser_count || 'N/A'}</p>
+                </div>
+            `;
+            
+            // 显示弹窗
+            document.getElementById('recordModal').style.display = 'block';
         }
+        
+        function closeModal() {
+            document.getElementById('recordModal').style.display = 'none';
+        }
+        
+        // 点击弹窗外部关闭弹窗
+        window.onclick = function(event) {
+            const modal = document.getElementById('recordModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+        
+        function hideRecordDetail() {
+            document.getElementById('recordDetail').style.display = 'none';
+        }
+        
+        function goBack() {
+            window.location.href = '/';
+        }
+        
+        // 页面加载时自动加载记录
+        window.onload = function() {
+            loadRecords();
+        };
     </script>
 </body>
 </html> 
