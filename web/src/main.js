@@ -56,6 +56,13 @@ import 'virtual:windi.css'
 // 全局样式
 import './assets/styles/main.css'
 
+// 开发环境调试工具
+if (process.env.NODE_ENV === 'development') {
+  import('./utils/debug.js').then(({ startLocalStorageMonitoring }) => {
+    startLocalStorageMonitoring()
+  })
+}
+
 const app = createApp(App)
 const pinia = createPinia()
 

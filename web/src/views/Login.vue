@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnalyticsStore } from '../stores/analytics'
 import { showToast, showFailToast } from 'vant'
@@ -74,6 +74,22 @@ const analyticsStore = useAnalyticsStore()
 const loading = ref(false)
 const form = reactive({
   username: ''
+})
+
+// 检查是否已有缓存的用户信息
+onMounted(() => {
+  const savedUser = localStorage.getItem('user')
+  if (savedUser) {
+    try {
+      const userData = JSON.parse(savedUser)
+      // 如果有缓存的用户名，填充到表单中
+      if (userData.username) {
+        form.username = userData.username
+      }
+    } catch (error) {
+      console.error('读取缓存用户信息失败:', error)
+    }
+  }
 })
 
 const features = [
@@ -89,16 +105,30 @@ const handleLogin = async () => {
   try {
     loading.value = true
     
+    console.log('登录页面：开始登录流程')
+    
     // 创建会话
+    console.log('登录页面：创建会话')
     await analyticsStore.createSession(form.username || null)
     
+    // 检查localStorage
+    const savedUser = localStorage.getItem('user')
+    console.log('登录页面：创建会话后的用户信息', savedUser)
+    
     // 自动启动分析（建立WebSocket连接）
+    console.log('登录页面：启动分析')
     await analyticsStore.startAnalysis()
+    
+    // 再次检查localStorage
+    const savedUserAfter = localStorage.getItem('user')
+    console.log('登录页面：启动分析后的用户信息', savedUserAfter)
     
     showToast('登录成功！')
     
-    // 跳转到主页
-    router.push('/')
+    // 获取重定向路径或默认跳转到主页
+    const redirectPath = router.currentRoute.value.query.redirect || '/'
+    console.log('登录页面：准备跳转到', redirectPath)
+    router.push(redirectPath)
     
   } catch (error) {
     console.error('登录失败:', error)

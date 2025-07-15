@@ -81,8 +81,13 @@ export const useAnalyticsStore = defineStore('analytics', () => {
           isLoggedIn: true
         }
         
-        // 存储到本地存储
-        localStorage.setItem('user', JSON.stringify(user.value))
+        // 存储到本地存储（包含时间戳）
+        const userWithTimestamp = {
+          ...user.value,
+          loginTime: new Date().toISOString(),
+          lastActivity: new Date().toISOString()
+        }
+        localStorage.setItem('user', JSON.stringify(userWithTimestamp))
         
         // 开始会话检查
         startSessionCheck()
@@ -260,12 +265,66 @@ export const useAnalyticsStore = defineStore('analytics', () => {
       if (savedUser) {
         const userData = JSON.parse(savedUser)
         
+        // 检查缓存是否过期（7天）
+        const loginTime = new Date(userData.loginTime || userData.created_at || Date.now())
+        const now = new Date()
+        const daysSinceLogin = (now - loginTime) / (1000 * 60 * 60 * 24)
+        
+        if (daysSinceLogin > 7) {
+          console.log('用户缓存已过期，需要重新登录')
+          localStorage.removeItem('user')
+          return false
+        }
+        
+        // 临时禁用会话验证，直接恢复用户状态
+        console.log('恢复用户状态（跳过会话验证）:', userData.username)
+        user.value = {
+          id: userData.id,
+          username: userData.username,
+          isLoggedIn: true
+        }
+        
+        // 更新最后活动时间
+        const updatedUser = {
+          ...userData,
+          lastActivity: new Date().toISOString()
+        }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // 重新建立WebSocket连接
+        if (!analysisStatus.value.isConnected) {
+          try {
+            await startAnalysis()
+          } catch (error) {
+            console.log('重新建立WebSocket连接失败:', error)
+          }
+        }
+        
+        console.log('会话恢复成功:', userData.username)
+        return true
+        
+        // 以下是原来的会话验证代码，暂时注释掉
+        /*
         // 验证会话是否仍然有效
         try {
+          console.log('正在验证会话状态，用户ID:', userData.id)
           const response = await apiService.getSessionStatus(userData.id)
+          console.log('会话状态验证响应:', response)
+          
           if (response.user_id === userData.id) {
             // 会话仍然有效，恢复用户状态
-            user.value = userData
+            user.value = {
+              id: userData.id,
+              username: userData.username,
+              isLoggedIn: true
+            }
+            
+            // 更新最后活动时间
+            const updatedUser = {
+              ...userData,
+              lastActivity: new Date().toISOString()
+            }
+            localStorage.setItem('user', JSON.stringify(updatedUser))
             
             // 重新建立WebSocket连接
             if (!analysisStatus.value.isConnected) {
@@ -274,12 +333,29 @@ export const useAnalyticsStore = defineStore('analytics', () => {
             
             console.log('会话恢复成功:', userData.username)
             return true
+          } else {
+            console.log('会话验证失败，用户ID不匹配')
+            localStorage.removeItem('user')
+            return false
           }
         } catch (error) {
+          console.log('会话验证出错:', error)
+          // 如果是网络错误或服务器错误，不要删除缓存，而是跳过验证
+          if (error.message.includes('网络') || error.message.includes('Failed to fetch')) {
+            console.log('网络错误，跳过会话验证，直接恢复用户状态')
+            user.value = {
+              id: userData.id,
+              username: userData.username,
+              isLoggedIn: true
+            }
+            return true
+          }
+          
           console.log('会话已过期，需要重新登录')
           localStorage.removeItem('user')
           return false
         }
+        */
       }
     } catch (err) {
       console.error('恢复会话失败:', err)

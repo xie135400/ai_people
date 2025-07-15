@@ -32,18 +32,6 @@
           <p style="margin-top: 16px;">正在恢复会话...</p>
         </div>
       </div>
-      
-      <!-- 用户未登录时显示登录提示 -->
-      <div v-else-if="!user.isLoggedIn" class="login-prompt">
-        <div class="prompt-card">
-          <van-icon name="user-circle-o" size="60" color="#1989fa" />
-          <h3>欢迎使用AI人流分析系统</h3>
-          <p>请先登录以开始使用分析功能</p>
-          <van-button type="primary" round @click="goToLogin">
-            立即登录
-          </van-button>
-        </div>
-      </div>
 
       <!-- 用户已登录时显示完整功能 -->
       <div v-else class="main-content">
@@ -274,21 +262,34 @@ const {
 
 // 检查登录状态
 onMounted(async () => {
+  console.log('Home页面：开始加载')
+  
   try {
+    // 检查localStorage中的用户信息
+    const savedUser = localStorage.getItem('user')
+    console.log('Home页面：localStorage中的用户信息', savedUser)
+    
     // 尝试恢复会话
+    console.log('Home页面：尝试恢复会话')
     const sessionRestored = await analyticsStore.restoreSession()
+    console.log('Home页面：会话恢复结果', sessionRestored)
+    
+    // 再次检查localStorage
+    const savedUserAfter = localStorage.getItem('user')
+    console.log('Home页面：恢复会话后的用户信息', savedUserAfter)
     
     // 如果已登录，启动定时更新
     if (user.isLoggedIn) {
+      console.log('Home页面：用户已登录，启动定时更新')
       startStatsUpdate()
+    } else {
+      console.log('Home页面：用户未登录')
     }
     
-    // 如果会话恢复失败，显示登录提示
-    if (!sessionRestored && !user.isLoggedIn) {
-      console.log('需要重新登录')
-    }
+    // 注意：如果会话恢复失败，路由守卫会自动处理跳转
   } finally {
     sessionLoading.value = false
+    console.log('Home页面：加载完成')
   }
 })
 
@@ -389,10 +390,6 @@ const onCameraError = (error) => {
 }
 
 // 导航方法
-const goToLogin = () => {
-  router.push('/login')
-}
-
 const goToAnalysis = () => {
   router.push('/analysis')
 }
@@ -498,8 +495,7 @@ const getAgeColor = (ageGroup) => {
   padding-bottom: 60px;
 }
 
-.loading-prompt,
-.login-prompt {
+.loading-prompt {
   height: 100%;
   display: flex;
   align-items: center;

@@ -64,3 +64,4 @@ logs/
 /dist/
 *.egg-info/ 
 *__pycache__*
+web/node_modules/

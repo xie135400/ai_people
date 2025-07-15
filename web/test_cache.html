@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户缓存测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+        }
+        .value {
+            color: #666;
+            margin-left: 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .expired {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .valid {
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>用户缓存状态检查</h1>
+        
+        <div id="cacheInfo">
+            <div class="info-item">
+                <span class="label">缓存状态:</span>
+                <span class="value" id="cacheStatus">检查中...</span>
+            </div>
+            <div class="info-item">
+                <span class="label">用户ID:</span>
+                <span class="value" id="userId">-</span>
+            </div>
+            <div class="info-item">
+                <span class="label">用户名:</span>
+                <span class="value" id="username">-</span>
+            </div>
+            <div class="info-item">
+                <span class="label">登录时间:</span>
+                <span class="value" id="loginTime">-</span>
+            </div>
+            <div class="info-item">
+                <span class="label">最后活动:</span>
+                <span class="value" id="lastActivity">-</span>
+            </div>
+            <div class="info-item">
+                <span class="label">缓存有效期:</span>
+                <span class="value" id="cacheExpiry">-</span>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="checkCache()">刷新状态</button>
+            <button onclick="clearCache()">清除缓存</button>
+            <button onclick="mockLogin()">模拟登录</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>缓存数据（JSON）</h2>
+        <pre id="rawData" style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto;"></pre>
+    </div>
+
+    <script>
+        function checkCache() {
+            const savedUser = localStorage.getItem('user');
+            const cacheStatus = document.getElementById('cacheStatus');
+            const userId = document.getElementById('userId');
+            const username = document.getElementById('username');
+            const loginTime = document.getElementById('loginTime');
+            const lastActivity = document.getElementById('lastActivity');
+            const cacheExpiry = document.getElementById('cacheExpiry');
+            const rawData = document.getElementById('rawData');
+            
+            if (!savedUser) {
+                cacheStatus.textContent = '无缓存数据';
+                cacheStatus.className = 'value expired';
+                userId.textContent = '-';
+                username.textContent = '-';
+                loginTime.textContent = '-';
+                lastActivity.textContent = '-';
+                cacheExpiry.textContent = '-';
+                rawData.textContent = '无数据';
+                return;
+            }
+            
+            try {
+                const userData = JSON.parse(savedUser);
+                rawData.textContent = JSON.stringify(userData, null, 2);
+                
+                // 检查缓存是否过期
+                const loginTimeDate = new Date(userData.loginTime || userData.created_at || Date.now());
+                const now = new Date();
+                const daysSinceLogin = (now - loginTimeDate) / (1000 * 60 * 60 * 24);
+                const expiryDate = new Date(loginTimeDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+                
+                userId.textContent = userData.id || '-';
+                username.textContent = userData.username || '-';
+                loginTime.textContent = loginTimeDate.toLocaleString();
+                lastActivity.textContent = userData.lastActivity ? new Date(userData.lastActivity).toLocaleString() : '-';
+                cacheExpiry.textContent = expiryDate.toLocaleString();
+                
+                if (daysSinceLogin > 7) {
+                    cacheStatus.textContent = '已过期';
+                    cacheStatus.className = 'value expired';
+                } else {
+                    const remainingDays = Math.ceil(7 - daysSinceLogin);
+                    cacheStatus.textContent = `有效（还剩 ${remainingDays} 天）`;
+                    cacheStatus.className = 'value valid';
+                }
+                
+            } catch (error) {
+                cacheStatus.textContent = '缓存数据异常';
+                cacheStatus.className = 'value expired';
+                rawData.textContent = '解析错误: ' + error.message;
+            }
+        }
+        
+        function clearCache() {
+            localStorage.removeItem('user');
+            alert('缓存已清除');
+            checkCache();
+        }
+        
+        function mockLogin() {
+            const mockUser = {
+                id: 'test-' + Date.now(),
+                username: 'test-user',
+                isLoggedIn: true,
+                loginTime: new Date().toISOString(),
+                lastActivity: new Date().toISOString()
+            };
+            
+            localStorage.setItem('user', JSON.stringify(mockUser));
+            alert('模拟登录成功');
+            checkCache();
+        }
+        
+        // 页面加载时检查缓存
+        window.onload = checkCache;
+        
+        // 每5秒自动刷新状态
+        setInterval(checkCache, 5000);
+    </script>
+</body>
+</html> 
