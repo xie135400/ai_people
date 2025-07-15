@@ -1,0 +1,66 @@
+# 忽略data目录中的所有文件
+/data/**/*
+!/data/.gitkeep
+!/data/analysis_records/.gitkeep
+!/data/test_images/.gitkeep
+
+# 忽略数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 忽略分析记录
+*.json
+
+# 忽略图像文件
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+
+# 忽略模型文件
+*.pt
+*.pth
+*.onnx
+*.bin
+*.h5
+
+# 忽略Python虚拟环境
+/venv/
+/env/
+/.venv/
+/.env/
+
+# 忽略Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 忽略日志文件
+*.log
+logs/
+
+# 忽略临时文件
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 忽略证书文件
+/certs/*.pem
+/certs/*.key
+/certs/*.crt
+
+# 忽略Jupyter notebook检查点
+.ipynb_checkpoints/
+
+# 忽略构建输出
+/build/
+/dist/
+*.egg-info/ 
+*__pycache__*

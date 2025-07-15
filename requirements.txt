@@ -1,0 +1,40 @@
+# 基础依赖
+numpy
+Cython
+wheel
+setuptools
+
+# PyTorch (最新版本，自动检测CUDA)
+torch
+torchvision
+torchaudio
+
+# 计算机视觉
+opencv-python
+ultralytics
+
+# Web框架
+fastapi
+uvicorn
+
+# 数据处理
+pandas
+
+# 跟踪算法
+deep_sort_realtime
+
+# 人脸识别 - InsightFace (可选，需要特殊安装方式)
+# 在M1 Mac上安装InsightFace的方法：
+# 1. 创建conda环境: conda create -n insightface_env python=3.10
+# 2. 激活环境: conda activate insightface_env  
+# 3. 安装依赖: conda install -c conda-forge numpy cython cmake onnxruntime opencv
+# 4. 设置环境变量: export CPPFLAGS="-I$(python -c 'import numpy; print(numpy.get_include())')"
+# 5. 设置架构: export ARCHFLAGS="-arch arm64"
+# 6. 安装InsightFace: pip install insightface --no-cache-dir
+# 
+# 如果安装成功，取消下面的注释：
+# insightface
+
+# 备选人脸识别库（如果InsightFace安装失败）
+# face_recognition  # 需要先安装: brew install cmake
+# mediapipe         # Google的解决方案，ARM支持更好 

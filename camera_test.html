@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>摄像头权限测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        video {
+            max-width: 100%;
+            border-radius: 5px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 摄像头权限测试</h1>
+        
+        <div class="info">
+            <h3>📋 测试说明</h3>
+            <p>此页面用于测试浏览器摄像头权限和功能。请按照以下步骤操作：</p>
+            <ol>
+                <li>点击"测试摄像头"按钮</li>
+                <li>在浏览器弹出的权限请求中选择"允许"</li>
+                <li>查看摄像头视频是否正常显示</li>
+            </ol>
+        </div>
+        
+        <div id="browserInfo" class="status"></div>
+        <div id="protocolInfo" class="status"></div>
+        
+        <button id="testBtn">测试摄像头</button>
+        <button id="stopBtn" class="hidden">停止摄像头</button>
+        
+        <div id="errorDiv" class="error hidden"></div>
+        <div id="successDiv" class="success hidden"></div>
+        
+        <video id="testVideo" class="hidden" autoplay muted></video>
+        
+        <div class="info">
+            <h3>🔧 常见问题解决</h3>
+            <p><strong>如果摄像头无法工作，请检查：</strong></p>
+            <ul>
+                <li><strong>浏览器支持：</strong>使用Chrome、Firefox、Safari或Edge等现代浏览器</li>
+                <li><strong>权限设置：</strong>确保允许网站访问摄像头</li>
+                <li><strong>HTTPS要求：</strong>摄像头功能需要HTTPS或localhost访问</li>
+                <li><strong>设备占用：</strong>关闭其他正在使用摄像头的应用</li>
+                <li><strong>硬件检查：</strong>确保摄像头设备正常连接</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        const testBtn = document.getElementById('testBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const testVideo = document.getElementById('testVideo');
+        const errorDiv = document.getElementById('errorDiv');
+        const successDiv = document.getElementById('successDiv');
+        const browserInfo = document.getElementById('browserInfo');
+        const protocolInfo = document.getElementById('protocolInfo');
+
+        // 显示浏览器和协议信息
+        function showSystemInfo() {
+            // 浏览器信息
+            const userAgent = navigator.userAgent;
+            let browserName = 'Unknown';
+            if (userAgent.includes('Chrome')) browserName = 'Chrome';
+            else if (userAgent.includes('Firefox')) browserName = 'Firefox';
+            else if (userAgent.includes('Safari')) browserName = 'Safari';
+            else if (userAgent.includes('Edge')) browserName = 'Edge';
+            
+            browserInfo.innerHTML = `🌐 浏览器: ${browserName}`;
+            browserInfo.className = 'status info';
+            
+            // 协议信息
+            const protocol = location.protocol;
+            const hostname = location.hostname;
+            const isSecure = protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1';
+            
+            protocolInfo.innerHTML = `🔒 访问协议: ${protocol}//${hostname} ${isSecure ? '✅ 安全' : '❌ 不安全'}`;
+            protocolInfo.className = isSecure ? 'status success' : 'status error';
+            
+            if (!isSecure) {
+                errorDiv.innerHTML = `
+                    <h4>⚠️ 协议不安全</h4>
+                    <p>当前使用 ${protocol} 协议访问，摄像头功能可能无法正常工作。</p>
+                    <p><strong>解决方案：</strong></p>
+                    <ul>
+                        <li>使用 <code>https://</code> 协议访问</li>
+                        <li>或使用 <code>localhost</code> 或 <code>127.0.0.1</code> 访问</li>
+                    </ul>
+                `;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // 测试摄像头
+        testBtn.onclick = async function() {
+            // 隐藏之前的消息
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+            
+            testBtn.disabled = true;
+            testBtn.textContent = '正在测试...';
+            
+            try {
+                // 检查浏览器支持
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('您的浏览器不支持摄像头功能');
+                }
+                
+                console.log('正在请求摄像头权限...');
+                
+                // 请求摄像头权限
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                console.log('摄像头权限获取成功');
+                
+                // 显示视频
+                testVideo.srcObject = stream;
+                testVideo.classList.remove('hidden');
+                
+                // 等待视频加载
+                await new Promise((resolve) => {
+                    testVideo.onloadedmetadata = resolve;
+                });
+                
+                // 显示成功信息
+                successDiv.innerHTML = `
+                    <h4>✅ 摄像头测试成功！</h4>
+                    <p>摄像头权限已获取，视频流正常显示。</p>
+                    <p>分辨率: ${testVideo.videoWidth} x ${testVideo.videoHeight}</p>
+                `;
+                successDiv.classList.remove('hidden');
+                
+                // 切换按钮
+                testBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                
+                console.log('摄像头测试完成');
+                
+            } catch (error) {
+                console.error('摄像头测试失败:', error);
+                
+                let errorMessage = '<h4>❌ 摄像头测试失败</h4>';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += `
+                        <p><strong>原因：</strong>用户拒绝了摄像头权限</p>
+                        <p><strong>解决方案：</strong></p>
+                        <ul>
+                            <li>点击地址栏左侧的摄像头图标</li>
+                            <li>选择"允许"摄像头权限</li>
+                            <li>刷新页面重试</li>
+                        </ul>
+                    `;
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += `
+                        <p><strong>原因：</strong>未找到摄像头设备</p>
+                        <p><strong>解决方案：</strong></p>
+                        <ul>
+                            <li>检查摄像头是否正确连接</li>
+                            <li>确保摄像头驱动已安装</li>
+                            <li>重启浏览器重试</li>
+                        </ul>
+                    `;
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += `
+                        <p><strong>原因：</strong>摄像头被其他应用占用</p>
+                        <p><strong>解决方案：</strong></p>
+                        <ul>
+                            <li>关闭其他使用摄像头的应用</li>
+                            <li>重启浏览器</li>
+                            <li>重新尝试</li>
+                        </ul>
+                    `;
+                } else {
+                    errorMessage += `
+                        <p><strong>错误信息：</strong>${error.message}</p>
+                        <p><strong>通用解决方案：</strong></p>
+                        <ul>
+                            <li>使用Chrome、Firefox或Safari浏览器</li>
+                            <li>确保使用HTTPS或localhost访问</li>
+                            <li>检查浏览器摄像头权限设置</li>
+                            <li>重启浏览器重试</li>
+                        </ul>
+                    `;
+                }
+                
+                errorDiv.innerHTML = errorMessage;
+                errorDiv.classList.remove('hidden');
+                
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '测试摄像头';
+            }
+        };
+
+        // 停止摄像头
+        stopBtn.onclick = function() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            testVideo.classList.add('hidden');
+            testBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            successDiv.classList.add('hidden');
+            
+            console.log('摄像头已停止');
+        };
+
+        // 页面加载时显示系统信息
+        showSystemInfo();
+    </script>
+</body>
+</html> 

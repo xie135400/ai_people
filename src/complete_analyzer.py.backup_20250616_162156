@@ -1,0 +1,372 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+完整分析器
+集成所有功能模块：人员检测跟踪、人脸分析、数据持久化、行为分析
+"""
+
+import cv2
+import numpy as np
+from typing import List, Tuple, Dict, Optional
+import logging
+from datetime import datetime
+import json
+
+from .persistent_analyzer import PersistentAnalyzer
+from .behavior_analyzer import BehaviorAnalyzer, Zone
+from .tracker import PersonTrack
+from .face_analyzer import FaceInfo
+from .integrated_analyzer import PersonProfile
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class CompleteAnalyzer:
+    """完整的AI人流分析系统"""
+    
+    def __init__(self, session_name: str = None, use_insightface: bool = True,
+                 db_path: str = "data/analytics.db", save_interval: int = 30,
+                 frame_width: int = 640, frame_height: int = 480):
+        """
+        初始化完整分析器
+        
+        Args:
+            session_name: 会话名称
+            use_insightface: 是否使用InsightFace（默认True，使用高精度模式）
+            db_path: 数据库路径
+            save_interval: 数据保存间隔（秒）
+            frame_width: 视频帧宽度
+            frame_height: 视频帧高度
+        """
+        # 初始化持久化分析器
+        self.persistent_analyzer = PersistentAnalyzer(
+            session_name=session_name,
+            use_insightface=use_insightface,
+            db_path=db_path,
+            save_interval=save_interval
+        )
+        
+        # 初始化行为分析器
+        self.behavior_analyzer = BehaviorAnalyzer(
+            frame_width=frame_width,
+            frame_height=frame_height
+        )
+        
+        # 显示配置
+        self.display_config = {
+            'show_tracks': True,
+            'show_faces': True,
+            'show_zones': True,
+            'show_heatmap': False,
+            'show_behavior_info': True,
+            'show_statistics': True,
+            'show_db_info': False
+        }
+        
+        # 统计数据
+        self.session_stats = {}
+        
+        logger.info("完整AI人流分析系统初始化完成")
+    
+    def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, Dict]:
+        """
+        处理单帧图像
+        
+        Args:
+            frame: 输入图像
+            
+        Returns:
+            (处理后的图像, 统计信息)
+        """
+        # 1. 基础分析（人员检测、跟踪、人脸识别、数据存储）
+        tracks, faces, profiles = self.persistent_analyzer.process_frame(frame)
+        
+        # 2. 行为分析
+        self.behavior_analyzer.update_behavior_analysis(tracks, profiles)
+        
+        # 3. 绘制结果
+        result_frame = self._draw_complete_results(frame, tracks, faces)
+        
+        # 4. 收集统计信息
+        stats = self._collect_statistics()
+        
+        return result_frame, stats
+    
+    def _draw_complete_results(self, frame: np.ndarray, tracks: List[PersonTrack], 
+                              faces: List[FaceInfo]) -> np.ndarray:
+        """绘制完整的分析结果"""
+        result_frame = frame.copy()
+        
+        # 绘制热力图（如果启用）
+        if self.display_config['show_heatmap']:
+            result_frame = self.behavior_analyzer.draw_heatmap(result_frame, alpha=0.4)
+        
+        # 绘制区域（如果启用）
+        if self.display_config['show_zones']:
+            result_frame = self.behavior_analyzer.draw_zones(result_frame)
+        
+        # 绘制基础分析结果（轨迹、人脸）
+        if self.display_config['show_tracks'] or self.display_config['show_faces']:
+            result_frame = self.persistent_analyzer.draw_results(
+                result_frame, tracks, faces, 
+                show_db_info=self.display_config['show_db_info']
+            )
+        
+        # 绘制行为信息（如果启用）
+        if self.display_config['show_behavior_info']:
+            result_frame = self.behavior_analyzer.draw_behavior_info(result_frame, tracks)
+        
+        # 绘制统计信息（如果启用）
+        if self.display_config['show_statistics']:
+            result_frame = self._draw_statistics(result_frame)
+        
+        return result_frame
+    
+    def _draw_statistics(self, frame: np.ndarray) -> np.ndarray:
+        """绘制统计信息"""
+        result_frame = frame.copy()
+        
+        # 获取各种统计信息
+        realtime_stats = self.persistent_analyzer.get_realtime_statistics()
+        behavior_summary = self.behavior_analyzer.get_behavior_summary()
+        
+        # 准备显示信息
+        info_lines = []
+        
+        # 基础统计
+        info_lines.append(f"Frame: {realtime_stats.get('frame_count', 0)}")
+        info_lines.append(f"Total People: {realtime_stats.get('total_people', 0)}")
+        info_lines.append(f"Active: {realtime_stats.get('active_tracks', 0)}")
+        
+        # 人脸分析统计
+        if realtime_stats.get('avg_age'):
+            info_lines.append(f"Avg Age: {realtime_stats['avg_age']:.1f}")
+        info_lines.append(f"Male: {realtime_stats.get('male_count', 0)}, Female: {realtime_stats.get('female_count', 0)}")
+        
+        # 行为分析统计
+        if behavior_summary:
+            info_lines.append(f"Avg Dwell: {behavior_summary.get('avg_dwell_time', 0):.1f}s")
+            info_lines.append(f"Shoppers: {behavior_summary.get('shoppers', 0)} ({behavior_summary.get('shopper_rate', 0):.1%})")
+            info_lines.append(f"Browsers: {behavior_summary.get('browsers', 0)} ({behavior_summary.get('browser_rate', 0):.1%})")
+            info_lines.append(f"Avg Engagement: {behavior_summary.get('avg_engagement_score', 0):.1f}")
+        
+        # 绘制信息
+        for i, line in enumerate(info_lines):
+            y_pos = 30 + i * 20
+            cv2.putText(result_frame, line, (10, y_pos), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            # 添加黑色背景提高可读性
+            text_size = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+            cv2.rectangle(result_frame, (8, y_pos - 15), (12 + text_size[0], y_pos + 5), (0, 0, 0), -1)
+            cv2.putText(result_frame, line, (10, y_pos), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        
+        return result_frame
+    
+    def _collect_statistics(self) -> Dict:
+        """收集所有统计信息"""
+        stats = {}
+        
+        # 实时统计
+        stats['realtime'] = self.persistent_analyzer.get_realtime_statistics()
+        
+        # 行为分析统计
+        stats['behavior'] = self.behavior_analyzer.get_behavior_summary()
+        
+        # 区域统计
+        stats['zones'] = self.behavior_analyzer.get_zone_statistics()
+        
+        # 数据库统计（如果需要）
+        try:
+            stats['database'] = self.persistent_analyzer.get_session_statistics()
+        except:
+            stats['database'] = {}
+        
+        return stats
+    
+    def toggle_display_option(self, option: str):
+        """切换显示选项"""
+        if option in self.display_config:
+            self.display_config[option] = not self.display_config[option]
+            logger.info(f"{option}: {'开启' if self.display_config[option] else '关闭'}")
+        else:
+            logger.warning(f"未知的显示选项: {option}")
+    
+    def add_custom_zone(self, name: str, polygon: List[Tuple[int, int]], 
+                       color: Tuple[int, int, int] = (0, 255, 0), zone_type: str = "custom"):
+        """添加自定义区域"""
+        zone = Zone(name=name, polygon=polygon, color=color, zone_type=zone_type)
+        self.behavior_analyzer.add_zone(zone)
+    
+    def save_current_data(self):
+        """立即保存当前数据"""
+        # 获取当前轨迹和人脸（需要从最后一次处理中获取）
+        # 这里简化处理，实际应用中可能需要缓存最后的结果
+        self.persistent_analyzer.save_current_frame_data([], [])
+        logger.info("手动保存数据完成")
+    
+    def export_statistics(self, filepath: str = None) -> str:
+        """导出统计信息到JSON文件"""
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = f"data/statistics_{timestamp}.json"
+        
+        stats = self._collect_statistics()
+        
+        # 处理不能序列化的对象
+        def json_serializer(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, set):
+                return list(obj)
+            return str(obj)
+        
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(stats, f, ensure_ascii=False, indent=2, default=json_serializer)
+            
+            logger.info(f"统计信息已导出到: {filepath}")
+            return filepath
+        except Exception as e:
+            logger.error(f"导出统计信息失败: {e}")
+            return ""
+    
+    def get_performance_metrics(self) -> Dict:
+        """获取性能指标"""
+        realtime_stats = self.persistent_analyzer.get_realtime_statistics()
+        behavior_summary = self.behavior_analyzer.get_behavior_summary()
+        
+        metrics = {
+            'total_people_detected': realtime_stats.get('total_people', 0),
+            'active_tracks': realtime_stats.get('active_tracks', 0),
+            'frames_processed': realtime_stats.get('frame_count', 0),
+            'avg_dwell_time': behavior_summary.get('avg_dwell_time', 0),
+            'engagement_rate': behavior_summary.get('avg_engagement_score', 0) / 100,  # 转换为0-1范围
+            'conversion_rate': behavior_summary.get('shopper_rate', 0),  # 购物者比例作为转化率
+            'browse_rate': behavior_summary.get('browser_rate', 0)
+        }
+        
+        return metrics
+    
+    def close(self):
+        """关闭分析器"""
+        try:
+            self.persistent_analyzer.close()
+            logger.info("完整分析器已关闭")
+        except Exception as e:
+            logger.error(f"关闭分析器失败: {e}")
+
+def test_complete_analyzer():
+    """测试完整分析器"""
+    # 初始化完整分析器
+    analyzer = CompleteAnalyzer(
+        session_name="完整系统测试",
+        use_insightface=True,
+        save_interval=15,
+        frame_width=640,
+        frame_height=480
+    )
+    
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        logger.error("无法打开摄像头")
+        return
+    
+    logger.info("开始测试完整AI人流分析系统")
+    logger.info("按键说明:")
+    logger.info("  'q' - 退出")
+    logger.info("  'h' - 切换热力图显示")
+    logger.info("  'z' - 切换区域显示")
+    logger.info("  'b' - 切换行为信息显示")
+    logger.info("  't' - 切换轨迹显示")
+    logger.info("  'f' - 切换人脸显示")
+    logger.info("  's' - 切换统计信息显示")
+    logger.info("  'd' - 切换数据库信息显示")
+    logger.info("  'e' - 导出统计信息")
+    logger.info("  'p' - 显示性能指标")
+    logger.info("  'SPACE' - 立即保存数据")
+    
+    try:
+        frame_count = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            
+            # 处理帧
+            result_frame, stats = analyzer.process_frame(frame)
+            
+            # 显示结果
+            cv2.imshow('Complete AI Analytics System', result_frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            elif key == ord('h'):
+                analyzer.toggle_display_option('show_heatmap')
+            elif key == ord('z'):
+                analyzer.toggle_display_option('show_zones')
+            elif key == ord('b'):
+                analyzer.toggle_display_option('show_behavior_info')
+            elif key == ord('t'):
+                analyzer.toggle_display_option('show_tracks')
+            elif key == ord('f'):
+                analyzer.toggle_display_option('show_faces')
+            elif key == ord('s'):
+                analyzer.toggle_display_option('show_statistics')
+            elif key == ord('d'):
+                analyzer.toggle_display_option('show_db_info')
+            elif key == ord('e'):
+                # 导出统计信息
+                filepath = analyzer.export_statistics()
+                if filepath:
+                    logger.info(f"✅ 统计信息已导出: {filepath}")
+            elif key == ord('p'):
+                # 显示性能指标
+                metrics = analyzer.get_performance_metrics()
+                logger.info("=== 性能指标 ===")
+                for key, value in metrics.items():
+                    logger.info(f"{key}: {value}")
+            elif key == ord(' '):
+                # 立即保存数据
+                analyzer.save_current_data()
+    
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        
+        # 显示最终统计
+        final_stats = analyzer._collect_statistics()
+        logger.info("=== 最终统计信息 ===")
+        
+        realtime = final_stats.get('realtime', {})
+        behavior = final_stats.get('behavior', {})
+        
+        logger.info(f"总处理帧数: {realtime.get('frame_count', 0)}")
+        logger.info(f"检测到的总人数: {realtime.get('total_people', 0)}")
+        logger.info(f"平均年龄: {realtime.get('avg_age', 'N/A')}")
+        logger.info(f"性别分布 - 男性: {realtime.get('male_count', 0)}, 女性: {realtime.get('female_count', 0)}")
+        
+        if behavior:
+            logger.info(f"平均停留时间: {behavior.get('avg_dwell_time', 0):.1f}秒")
+            logger.info(f"购物者: {behavior.get('shoppers', 0)} ({behavior.get('shopper_rate', 0):.1%})")
+            logger.info(f"浏览者: {behavior.get('browsers', 0)} ({behavior.get('browser_rate', 0):.1%})")
+            logger.info(f"平均参与度: {behavior.get('avg_engagement_score', 0):.1f}")
+        
+        # 区域统计
+        zones = final_stats.get('zones', {})
+        if zones:
+            logger.info("=== 区域统计 ===")
+            for zone_name, zone_stats in zones.items():
+                logger.info(f"{zone_name}: 访问{zone_stats['total_visits']}次, "
+                           f"独立访客{zone_stats['unique_visitors']}人, "
+                           f"平均停留{zone_stats['avg_dwell_time']:.1f}秒")
+        
+        # 关闭分析器
+        analyzer.close()
+
+if __name__ == "__main__":
+    test_complete_analyzer() 

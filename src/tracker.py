@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+人员跟踪模块
+使用DeepSORT进行多目标跟踪
+"""
+
+import cv2
+import numpy as np
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from typing import List, Tuple, Dict, Optional
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@dataclass
+class PersonTrack:
+    """人员轨迹数据类"""
+    track_id: int
+    bbox: Tuple[int, int, int, int]  # (x1, y1, x2, y2)
+    confidence: float
+    center: Tuple[int, int]
+    timestamp: datetime
+    age: int  # 轨迹存在的帧数
+
+class PersonTracker:
+    """人员跟踪器"""
+    
+    def __init__(self, max_age: int = 30, n_init: int = 3):
+        """
+        初始化跟踪器
+        
+        Args:
+            max_age: 轨迹最大存活时间（帧数）
+            n_init: 确认轨迹所需的连续检测次数
+        """
+        self.max_age = max_age
+        self.n_init = n_init
+        
+        # 初始化DeepSORT跟踪器
+        self.tracker = DeepSort(
+            max_age=max_age,
+            n_init=n_init,
+            max_cosine_distance=0.2,
+            nn_budget=100
+        )
+        
+        # 轨迹历史记录
+        self.track_history: Dict[int, List[Tuple[int, int, datetime]]] = {}
+        self.active_tracks: Dict[int, PersonTrack] = {}
+        
+        logger.info("人员跟踪器初始化完成")
+    
+    def update(self, detections: List[Tuple[int, int, int, int, float]], frame: np.ndarray) -> List[PersonTrack]:
+        """
+        更新跟踪器
+        
+        Args:
+            detections: 检测结果列表 [(x1, y1, x2, y2, confidence), ...]
+            frame: 当前帧图像
+            
+        Returns:
+            当前活跃的轨迹列表
+        """
+        current_time = datetime.now()
+        
+        # 转换检测格式为DeepSORT需要的格式
+        # DeepSORT需要 ([left, top, w, h], confidence, detection_class)
+        deepsort_detections = []
+        for x1, y1, x2, y2, conf in detections:
+            w = x2 - x1
+            h = y2 - y1
+            deepsort_detections.append(([x1, y1, w, h], conf, 'person'))
+        
+        try:
+            # 更新跟踪器
+            tracks = self.tracker.update_tracks(deepsort_detections, frame=frame)
+            
+            # 处理跟踪结果
+            current_tracks = []
+            for track in tracks:
+                if not track.is_confirmed():
+                    continue
+                
+                track_id = track.track_id
+                ltrb = track.to_ltrb()
+                
+                if ltrb is not None:
+                    x1, y1, x2, y2 = map(int, ltrb)
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+                    
+                    # 创建轨迹对象
+                    person_track = PersonTrack(
+                        track_id=track_id,
+                        bbox=(x1, y1, x2, y2),
+                        confidence=0.8,  # DeepSORT不直接提供置信度
+                        center=(center_x, center_y),
+                        timestamp=current_time,
+                        age=track.age if hasattr(track, 'age') else 1
+                    )
+                    
+                    current_tracks.append(person_track)
+                    self.active_tracks[track_id] = person_track
+                    
+                    # 更新轨迹历史
+                    if track_id not in self.track_history:
+                        self.track_history[track_id] = []
+                    self.track_history[track_id].append((center_x, center_y, current_time))
+                    
+                    # 限制历史记录长度
+                    if len(self.track_history[track_id]) > 100:
+                        self.track_history[track_id] = self.track_history[track_id][-100:]
+            
+            logger.debug(f"当前活跃轨迹数: {len(current_tracks)}")
+            return current_tracks
+            
+        except Exception as e:
+            logger.error(f"跟踪更新失败: {e}")
+            return []
+    
+    def get_track_path(self, track_id: int, max_points: int = 30) -> List[Tuple[int, int]]:
+        """
+        获取指定轨迹的路径点
+        
+        Args:
+            track_id: 轨迹ID
+            max_points: 最大路径点数
+            
+        Returns:
+            路径点列表 [(x, y), ...]
+        """
+        if track_id not in self.track_history:
+            return []
+        
+        history = self.track_history[track_id]
+        if len(history) <= 1:
+            return []
+        
+        # 返回最近的路径点
+        recent_points = history[-max_points:]
+        return [(x, y) for x, y, _ in recent_points]
+    
+    def draw_tracks(self, frame: np.ndarray, tracks: List[PersonTrack], 
+                   show_path: bool = True, path_length: int = 30) -> np.ndarray:
+        """
+        在图像上绘制跟踪结果
+        
+        Args:
+            frame: 输入图像
+            tracks: 轨迹列表
+            show_path: 是否显示轨迹路径
+            path_length: 路径长度
+            
+        Returns:
+            绘制了跟踪结果的图像
+        """
+        result_frame = frame.copy()
+        
+        # 定义颜色列表
+        colors = [
+            (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
+            (255, 0, 255), (0, 255, 255), (128, 0, 128), (255, 165, 0)
+        ]
+        
+        for track in tracks:
+            track_id = track.track_id
+            x1, y1, x2, y2 = track.bbox
+            center_x, center_y = track.center
+            
+            # 选择颜色 - 确保track_id是整数
+            color_index = int(track_id) % len(colors)
+            color = colors[color_index]
+            
+            # 绘制边界框
+            cv2.rectangle(result_frame, (x1, y1), (x2, y2), color, 2)
+            
+            # 绘制中心点
+            cv2.circle(result_frame, (center_x, center_y), 4, color, -1)
+            
+            # 绘制轨迹ID
+            label = f'ID: {track_id}'
+            label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+            cv2.rectangle(result_frame, (x1, y1 - label_size[1] - 10), 
+                         (x1 + label_size[0], y1), color, -1)
+            cv2.putText(result_frame, label, (x1, y1 - 5), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            # 绘制轨迹路径
+            if show_path:
+                path_points = self.get_track_path(track_id, path_length)
+                if len(path_points) > 1:
+                    for i in range(1, len(path_points)):
+                        # 路径点透明度递减
+                        alpha = i / len(path_points)
+                        thickness = max(1, int(3 * alpha))
+                        cv2.line(result_frame, path_points[i-1], path_points[i], color, thickness)
+        
+        return result_frame
+    
+    def get_statistics(self) -> Dict:
+        """
+        获取跟踪统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        return {
+            'active_tracks': len(self.active_tracks),
+            'total_tracks': len(self.track_history),
+            'track_ids': list(self.active_tracks.keys())
+        }
+
+def test_tracker():
+    """测试跟踪器"""
+    from .detector import PersonDetector
+    
+    # 初始化检测器和跟踪器
+    detector = PersonDetector()
+    tracker = PersonTracker()
+    
+    # 测试摄像头
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        logger.error("无法打开摄像头")
+        return
+    
+    logger.info("开始测试人员跟踪，按 'q' 退出")
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # 检测人员
+        detections = detector.detect_persons(frame)
+        
+        # 更新跟踪
+        tracks = tracker.update(detections, frame)
+        
+        # 绘制结果
+        result_frame = tracker.draw_tracks(frame, tracks)
+        
+        # 显示统计信息
+        stats = tracker.get_statistics()
+        info_text = f"Active: {stats['active_tracks']}, Total: {stats['total_tracks']}"
+        cv2.putText(result_frame, info_text, (10, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        
+        # 显示结果
+        cv2.imshow('Person Tracking', result_frame)
+        
+        # 按 'q' 退出
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    test_tracker() 
