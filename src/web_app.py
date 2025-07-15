@@ -27,6 +27,7 @@ import time
 import ssl
 import os
 import ipaddress
+import argparse  # 新增：导入 argparse 模块
 
 from .complete_analyzer import CompleteAnalyzer
 from .database import DatabaseManager
@@ -1653,8 +1654,18 @@ class WebApp:
 
 def main():
     """主函数"""
+    # 创建命令行参数解析器
+    parser = argparse.ArgumentParser(description='AI人流分析Web应用')
+    parser.add_argument('--host', type=str, default='localhost', help='服务器主机地址')
+    parser.add_argument('--port', type=int, default=8000, help='服务器端口号')
+    parser.add_argument('--no-ssl', action='store_true', help='禁用SSL（使用HTTP而不是HTTPS）')
+    
+    # 解析命令行参数
+    args = parser.parse_args()
+    
+    # 创建并运行Web应用
     web_app = WebApp()
-    web_app.run()
+    web_app.run(host=args.host, port=args.port, use_ssl=not args.no_ssl)
 
 if __name__ == "__main__":
     main() 
