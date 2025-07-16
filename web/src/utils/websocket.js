@@ -1,3 +1,5 @@
+import { wsLogger } from './logger'
+
 class WebSocketService {
   constructor() {
     this.ws = null
@@ -12,7 +14,7 @@ class WebSocketService {
 
   connect(userId, onMessage) {
     if (this.isConnecting) {
-      console.log('WebSocket正在连接中...')
+      wsLogger.debug('WebSocket正在连接中...')
       return
     }
 
@@ -22,7 +24,7 @@ class WebSocketService {
     this.isConnecting = true
 
     const wsUrl = `ws://localhost:8443/ws/${userId}`
-    console.log('连接WebSocket:', wsUrl)
+    wsLogger.info('连接WebSocket:', wsUrl)
 
     try {
       this.ws = new WebSocket(wsUrl)
@@ -31,7 +33,7 @@ class WebSocketService {
       window.wsService = this
       
       this.ws.onopen = () => {
-        console.log('WebSocket连接已建立')
+        wsLogger.info('WebSocket连接已建立')
         this.isConnecting = false
         this.reconnectAttempts = 0
         
@@ -46,31 +48,33 @@ class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          console.log('收到WebSocket消息:', data)
           
-          // 处理帧分析结果
+          // 只在调试模式下打印详细消息，减少生产环境的输出
           if (data.type === 'frame_result') {
+            wsLogger.debug('收到帧分析结果')
             // 通知 CameraCapture 组件
             if (window.cameraCapture) {
               window.cameraCapture.handleFrameResult(data)
             }
+          } else {
+            wsLogger.debug('收到WebSocket消息:', data.type)
           }
           
           if (this.onMessage) {
             this.onMessage(data)
           }
         } catch (error) {
-          console.error('解析WebSocket消息失败:', error)
+          wsLogger.error('解析WebSocket消息失败:', error)
         }
       }
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket连接已关闭:', event.code, event.reason)
+        wsLogger.info('WebSocket连接已关闭:', event.code, event.reason)
         this.isConnecting = false
         
         if (!this.isManualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++
-          console.log(`WebSocket重连尝试 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
+          wsLogger.info(`WebSocket重连尝试 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
           
           setTimeout(() => {
             this.connect(this.userId, this.onMessage)
@@ -79,7 +83,7 @@ class WebSocketService {
       }
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket错误:', error)
+        wsLogger.error('WebSocket错误:', error)
         this.isConnecting = false
         
         if (this.onMessage) {
@@ -90,7 +94,7 @@ class WebSocketService {
         }
       }
     } catch (error) {
-      console.error('创建WebSocket连接失败:', error)
+      wsLogger.error('创建WebSocket连接失败:', error)
       this.isConnecting = false
       
       if (this.onMessage) {
@@ -106,12 +110,18 @@ class WebSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(data))
-        console.log('发送WebSocket消息:', data)
+        
+        // 只在调试模式下打印发送的消息，减少生产环境的输出
+        if (data.type === 'video_frame') {
+          wsLogger.debug('发送视频帧数据')
+        } else {
+          wsLogger.debug('发送WebSocket消息:', data.type)
+        }
       } catch (error) {
-        console.error('发送WebSocket消息失败:', error)
+        wsLogger.error('发送WebSocket消息失败:', error)
       }
     } else {
-      console.warn('WebSocket未连接，无法发送消息')
+      wsLogger.debug('WebSocket未连接，无法发送消息')
     }
   }
 
@@ -133,7 +143,7 @@ class WebSocketService {
       delete window.wsService
     }
     
-    console.log('WebSocket已手动断开')
+    wsLogger.info('WebSocket已手动断开')
   }
 
   isConnected() {
@@ -166,7 +176,7 @@ class WebSocketService {
         timestamp: new Date().toISOString()
       })
     } else {
-      console.warn('WebSocket未连接，无法请求统计数据，状态:', this.getReadyState())
+      wsLogger.debug('WebSocket未连接，无法请求统计数据，状态:', this.getReadyState())
     }
   }
 

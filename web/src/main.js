@@ -44,7 +44,8 @@ import {
   Sticky,
   Swipe,
   SwipeItem,
-  Lazyload
+  Lazyload,
+  Picker
 } from 'vant'
 
 // Vant 样式
@@ -56,12 +57,12 @@ import 'virtual:windi.css'
 // 全局样式
 import './assets/styles/main.css'
 
-// 开发环境调试工具
-if (process.env.NODE_ENV === 'development') {
-  import('./utils/debug.js').then(({ startLocalStorageMonitoring }) => {
-    startLocalStorageMonitoring()
-  })
-}
+// 开发环境调试工具（暂时禁用localStorage监控以减少输出）
+// if (process.env.NODE_ENV === 'development') {
+//   import('./utils/debug.js').then(({ startLocalStorageMonitoring }) => {
+//     startLocalStorageMonitoring()
+//   })
+// }
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -107,6 +108,7 @@ app.use(Sticky)
 app.use(Swipe)
 app.use(SwipeItem)
 app.use(Lazyload)
+app.use(Picker)
 
 app.use(pinia)
 app.use(router)

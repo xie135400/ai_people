@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../utils/api'
 import { wsService } from '../utils/websocket'
+import { authLogger } from '../utils/logger'
 
 export const useAnalyticsStore = defineStore('analytics', () => {
   // 状态
@@ -110,6 +111,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         throw new Error('请先登录')
       }
       
+      // 如果已经在运行中，直接返回成功
+      if (analysisStatus.value.isRunning) {
+        authLogger.info('分析已在运行中，跳过重复启动')
+        return { status: 'success', message: '分析已在运行中' }
+      }
+      
       loading.value = true
       error.value = null
       
@@ -188,7 +195,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     try {
       if (data.type === 'connection_established') {
         analysisStatus.value.isConnected = true
-        console.log('WebSocket连接已建立')
+        authLogger.info('WebSocket连接已建立')
       } else if (data.type === 'frame_result') {
         analysisStatus.value.frameCount++
         analysisStatus.value.lastUpdate = new Date()
@@ -202,7 +209,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         error.value = data.message
       }
     } catch (err) {
-      console.error('处理WebSocket消息失败:', err)
+      authLogger.error('处理WebSocket消息失败:', err)
     }
   }
   
@@ -271,13 +278,13 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         const daysSinceLogin = (now - loginTime) / (1000 * 60 * 60 * 24)
         
         if (daysSinceLogin > 7) {
-          console.log('用户缓存已过期，需要重新登录')
+          authLogger.info('用户缓存已过期，需要重新登录')
           localStorage.removeItem('user')
           return false
         }
         
         // 临时禁用会话验证，直接恢复用户状态
-        console.log('恢复用户状态（跳过会话验证）:', userData.username)
+        authLogger.info('恢复用户状态（跳过会话验证）:', userData.username)
         user.value = {
           id: userData.id,
           username: userData.username,
@@ -294,13 +301,16 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         // 重新建立WebSocket连接
         if (!analysisStatus.value.isConnected) {
           try {
-            await startAnalysis()
+            // 直接连接WebSocket，不调用startAnalysis避免"分析已在运行中"错误
+            wsService.connect(userData.id, onWebSocketMessage)
+            analysisStatus.value.isConnected = true
+            authLogger.info('WebSocket连接已重新建立')
           } catch (error) {
-            console.log('重新建立WebSocket连接失败:', error)
+            authLogger.error('重新建立WebSocket连接失败:', error)
           }
         }
         
-        console.log('会话恢复成功:', userData.username)
+        authLogger.info('会话恢复成功:', userData.username)
         return true
         
         // 以下是原来的会话验证代码，暂时注释掉
@@ -357,11 +367,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         }
         */
       }
-    } catch (err) {
-      console.error('恢复会话失败:', err)
-      localStorage.removeItem('user')
-      return false
-    }
+          } catch (err) {
+        authLogger.error('恢复会话失败:', err)
+        localStorage.removeItem('user')
+        return false
+      }
     return false
   }
 
@@ -376,7 +386,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
       if (wsService && wsService.isConnected()) {
         wsService.requestStats()
       } else {
-        console.log('WebSocket未连接，跳过统计数据请求')
+        authLogger.debug('WebSocket未连接，跳过统计数据请求')
       }
     }, 3000)
   }
@@ -401,7 +411,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         try {
           await apiService.getSessionStatus(user.value.id)
         } catch (error) {
-          console.log('会话已过期，自动退出登录')
+          authLogger.info('会话已过期，自动退出登录')
           logout()
         }
       }

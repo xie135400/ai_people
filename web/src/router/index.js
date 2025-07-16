@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { routerLogger } from '../utils/logger'
 
 const routes = [
   {
@@ -51,11 +52,11 @@ router.beforeEach((to, from, next) => {
   
   // 如果不是登录页面，检查登录状态
   if (!isLoginPage && requiresAuth) {
-    console.log('路由守卫：检查页面', to.path, '是否需要登录')
+    routerLogger.debug('检查页面', to.path, '是否需要登录')
     const savedUser = localStorage.getItem('user')
     
     if (!savedUser) {
-      console.log('路由守卫：未找到用户缓存，跳转到登录页面')
+      routerLogger.info('未找到用户缓存，跳转到登录页面')
       // 未登录，跳转到登录页面，并保存重定向路径
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
       return
@@ -63,29 +64,29 @@ router.beforeEach((to, from, next) => {
     
     try {
       const userData = JSON.parse(savedUser)
-      console.log('路由守卫：找到用户缓存', userData)
+      routerLogger.debug('找到用户缓存', userData.username)
       
       // 检查缓存是否过期（7天）
       const loginTime = new Date(userData.loginTime || userData.created_at || Date.now())
       const now = new Date()
       const daysSinceLogin = (now - loginTime) / (1000 * 60 * 60 * 24)
       
-      console.log('路由守卫：登录时间检查', {
+      routerLogger.debug('登录时间检查', {
         loginTime: loginTime.toISOString(),
         daysSinceLogin: daysSinceLogin.toFixed(2)
       })
       
       if (daysSinceLogin > 7) {
-        console.log('路由守卫：缓存已过期，清除并跳转到登录页面')
+        routerLogger.info('缓存已过期，清除并跳转到登录页面')
         // 缓存过期，清除并跳转到登录页面
         localStorage.removeItem('user')
         next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
         return
       }
       
-      console.log('路由守卫：缓存有效，允许访问')
+      routerLogger.debug('缓存有效，允许访问')
     } catch (error) {
-      console.log('路由守卫：缓存数据异常，清除并跳转到登录页面', error)
+      routerLogger.error('缓存数据异常，清除并跳转到登录页面', error)
       // 缓存数据异常，清除并跳转到登录页面
       localStorage.removeItem('user')
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)

@@ -1,35 +1,32 @@
 <template>
   <div class="home-container">
     <!-- 顶部导航 -->
-    <van-nav-bar 
-      :title="user.username || 'AI人流分析'"
-      class="home-navbar"
-    >
-      <template #left>
-        <van-tag 
-          :type="analysisStatus.isRunning ? 'success' : 'default'"
-          size="medium"
-        >
-          {{ analysisStatus.isRunning ? '运行中' : '已停止' }}
-        </van-tag>
-      </template>
+    <div class="home-header">
+      <div class="status-indicator" :class="{ active: analysisStatus.isRunning }">
+        <div class="status-dot"></div>
+        <span>{{ analysisStatus.isRunning ? '运行中' : '已停止' }}</span>
+      </div>
       
-      <template #right>
-        <van-icon 
-          :name="analysisStatus.isConnected ? 'success' : 'cross'"
-          :color="analysisStatus.isConnected ? '#07c160' : '#ee0a24'"
-          size="16"
-        />
-      </template>
-    </van-nav-bar>
+      <div class="header-title">
+        <h1>{{ user.username || 'AI人流分析' }}</h1>
+        <p class="header-subtitle">实时智能监控</p>
+      </div>
+      
+      <div class="connection-status" :class="{ connected: analysisStatus.isConnected }">
+        <van-icon :name="analysisStatus.isConnected ? 'success' : 'cross'" />
+      </div>
+    </div>
 
     <!-- 主要内容区域 -->
     <div class="home-content">
       <!-- 会话加载中 -->
       <div v-if="sessionLoading" class="loading-prompt">
         <div class="prompt-card">
-          <van-loading size="30" color="#1989fa" />
-          <p style="margin-top: 16px;">正在恢复会话...</p>
+          <div class="loading-animation">
+            <van-loading size="36" color="#4b79cf" />
+          </div>
+          <h3>正在恢复会话</h3>
+          <p>请稍候，正在加载您的分析数据...</p>
         </div>
       </div>
 
@@ -37,96 +34,117 @@
       <div v-else class="main-content">
         <!-- 摄像头和控制面板 -->
         <div class="camera-section">
-          <CameraCapture 
-            :user-id="user.id"
-            @frame-analyzed="onFrameAnalyzed"
-            @faces-detected="onFacesDetected"
-            @error="onCameraError"
-            ref="cameraRef"
-          />
+          <div class="camera-container">
+            <CameraCapture 
+              :user-id="user.id"
+              @frame-analyzed="onFrameAnalyzed"
+              @faces-detected="onFacesDetected"
+              @error="onCameraError"
+              ref="cameraRef"
+            />
+            
+            <div class="camera-overlay" v-if="analysisStatus.isRunning">
+              <div class="analysis-badge">
+                <van-icon name="eye-o" />
+                <span>实时分析中</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- 实时统计卡片 -->
-        <div class="stats-section">
-          <div class="section-title">
-            <van-icon name="chart-trending-o" />
-            <span>实时统计</span>
-            <van-tag v-if="analysisStatus.lastUpdate" type="primary" size="mini">
-              {{ formatTime(analysisStatus.lastUpdate) }}
-            </van-tag>
+        <!-- 实时数据概览 -->
+        <div class="dashboard-overview">
+          <div class="overview-header">
+            <h2>实时数据概览</h2>
+            <div class="last-update" v-if="analysisStatus.lastUpdate">
+              <van-icon name="underway-o" />
+              <span>{{ formatTime(analysisStatus.lastUpdate) }}</span>
+            </div>
           </div>
           
-          <div class="stats-grid">
+          <div class="stats-cards">
             <!-- 人流统计 -->
-            <div class="stats-card">
-              <div class="stats-card-header">
-                <span class="stats-card-title">当前人数</span>
-                <van-icon name="friends-o" color="#1989fa" />
+            <div class="stat-card people-card">
+              <div class="stat-icon">
+                <van-icon name="friends-o" />
               </div>
-              <div class="stats-card-value">{{ realtimeStats.activePeople }}</div>
-              <div class="stats-card-footer">
-                <span class="stats-card-label">总计: {{ realtimeStats.totalPeople }}</span>
+              <div class="stat-content">
+                <div class="stat-value">{{ realtimeStats.activePeople }}</div>
+                <div class="stat-label">当前人数</div>
+                <div class="stat-trend">
+                  <span>总计: {{ realtimeStats.totalPeople }}</span>
+                </div>
               </div>
             </div>
             
             <!-- 平均年龄 -->
-            <div class="stats-card">
-              <div class="stats-card-header">
-                <span class="stats-card-title">平均年龄</span>
-                <van-icon name="user-o" color="#07c160" />
+            <div class="stat-card age-card">
+              <div class="stat-icon">
+                <van-icon name="user-o" />
               </div>
-              <div class="stats-card-value">
-                {{ realtimeStats.avgAge ? Math.round(realtimeStats.avgAge) : '-' }}
-                <span v-if="realtimeStats.avgAge" class="stats-card-unit">岁</span>
-              </div>
-              <div class="stats-card-footer">
-                <span class="stats-card-label">实时计算</span>
+              <div class="stat-content">
+                <div class="stat-value">
+                  {{ realtimeStats.avgAge ? Math.round(realtimeStats.avgAge) : '-' }}
+                  <span v-if="realtimeStats.avgAge" class="stat-unit">岁</span>
+                </div>
+                <div class="stat-label">平均年龄</div>
+                <div class="stat-trend">
+                  <span>实时计算</span>
+                </div>
               </div>
             </div>
             
             <!-- 性别分布 -->
-            <div class="stats-card">
-              <div class="stats-card-header">
-                <span class="stats-card-title">性别分布</span>
-                <van-icon name="balance-o" color="#ff976a" />
+            <div class="stat-card gender-card">
+              <div class="stat-icon">
+                <van-icon name="balance-o" />
               </div>
-              <div class="gender-stats">
-                <div class="gender-item">
-                  <span class="gender-label">男</span>
-                  <span class="gender-value">{{ genderDistribution.male }}%</span>
+              <div class="stat-content">
+                <div class="gender-distribution">
+                  <div class="gender-bar">
+                    <div class="male-bar" :style="{width: genderDistribution.male + '%'}">
+                      <van-icon name="contact" />
+                    </div>
+                    <div class="female-bar" :style="{width: genderDistribution.female + '%'}">
+                      <van-icon name="like" />
+                    </div>
+                  </div>
+                  <div class="gender-values">
+                    <span class="male-value">{{ genderDistribution.male }}%</span>
+                    <span class="female-value">{{ genderDistribution.female }}%</span>
+                  </div>
                 </div>
-                <div class="gender-item">
-                  <span class="gender-label">女</span>
-                  <span class="gender-value">{{ genderDistribution.female }}%</span>
-                </div>
+                <div class="stat-label">性别分布</div>
               </div>
             </div>
             
-            <!-- 行为分析 -->
-            <div class="stats-card">
-              <div class="stats-card-header">
-                <span class="stats-card-title">购物转化</span>
-                <van-icon name="shopping-cart-o" color="#ee0a24" />
+            <!-- 购物转化 -->
+            <div class="stat-card conversion-card">
+              <div class="stat-icon">
+                <van-icon name="shopping-cart-o" />
               </div>
-              <div class="stats-card-value">
-                {{ Math.round(behaviorStats.conversionRate) }}
-                <span class="stats-card-unit">%</span>
-              </div>
-              <div class="stats-card-footer">
-                <span class="stats-card-label">
-                  购物者: {{ behaviorStats.shoppers }} | 浏览者: {{ behaviorStats.browsers }}
-                </span>
+              <div class="stat-content">
+                <div class="stat-value">
+                  {{ Math.round(behaviorStats.conversionRate) }}
+                  <span class="stat-unit">%</span>
+                </div>
+                <div class="stat-label">购物转化</div>
+                <div class="stat-trend">
+                  <span>购物者: {{ behaviorStats.shoppers }} | 浏览者: {{ behaviorStats.browsers }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- 年龄分布图表 -->
-        <div class="chart-section" v-if="totalAgeAnalyzed > 0">
-          <div class="section-title">
-            <van-icon name="bar-chart-o" />
-            <span>年龄分布</span>
-            <van-tag type="primary" size="mini">{{ totalAgeAnalyzed }}人</van-tag>
+        <div class="dashboard-section age-distribution-section" v-if="totalAgeAnalyzed > 0">
+          <div class="section-header">
+            <h2>
+              <van-icon name="bar-chart-o" />
+              年龄分布
+            </h2>
+            <div class="section-badge">{{ totalAgeAnalyzed }}人</div>
           </div>
           
           <div class="age-chart">
@@ -137,12 +155,13 @@
             >
               <div class="age-label">{{ ageGroup }}</div>
               <div class="age-progress">
-                <van-progress 
-                  :percentage="totalAgeAnalyzed > 0 ? Math.round((count / totalAgeAnalyzed) * 100) : 0"
-                  :color="getAgeColor(ageGroup)"
-                  :show-pivot="false"
-                  stroke-width="8"
-                />
+                <div 
+                  class="age-progress-bar" 
+                  :style="{
+                    width: totalAgeAnalyzed > 0 ? (count / totalAgeAnalyzed * 100) + '%' : '0%',
+                    backgroundColor: getAgeColor(ageGroup)
+                  }"
+                ></div>
               </div>
               <div class="age-count">{{ count }}</div>
             </div>
@@ -150,80 +169,105 @@
         </div>
 
         <!-- 系统状态 -->
-        <div class="status-section">
-          <div class="section-title">
-            <van-icon name="setting-o" />
-            <span>系统状态</span>
+        <div class="dashboard-section system-status-section">
+          <div class="section-header">
+            <h2>
+              <van-icon name="setting-o" />
+              系统状态
+            </h2>
           </div>
           
-          <van-cell-group inset>
-            <van-cell 
-              title="分析帧数" 
-              :value="analysisStatus.frameCount.toLocaleString()"
-              icon="video-o"
-            />
-            <van-cell 
-              title="连接状态" 
-              :value="analysisStatus.isConnected ? '已连接' : '未连接'"
-              icon="wifi-o"
-            >
-              <template #value>
-                <van-tag 
-                  :type="analysisStatus.isConnected ? 'success' : 'danger'"
-                  size="medium"
-                >
-                  {{ analysisStatus.isConnected ? '已连接' : '未连接' }}
-                </van-tag>
-              </template>
-            </van-cell>
-            <van-cell 
-              title="参与度评分" 
-              :value="Math.round(behaviorStats.avgEngagement * 100) + '%'"
-              icon="star-o"
-            />
-            <van-cell 
-              title="平均停留时间" 
-              :value="formatDuration(behaviorStats.avgDwellTime)"
-              icon="clock-o"
-            />
-          </van-cell-group>
+          <div class="status-cards">
+            <div class="status-card">
+              <div class="status-card-icon">
+                <van-icon name="video-o" />
+              </div>
+              <div class="status-card-content">
+                <div class="status-card-value">{{ analysisStatus.frameCount.toLocaleString() }}</div>
+                <div class="status-card-label">分析帧数</div>
+              </div>
+            </div>
+            
+            <div class="status-card">
+              <div class="status-card-icon">
+                <van-icon name="wifi-o" :class="{ 'connected-icon': analysisStatus.isConnected }" />
+              </div>
+              <div class="status-card-content">
+                <div class="status-card-value">
+                  <span :class="{ 'connected-text': analysisStatus.isConnected }">
+                    {{ analysisStatus.isConnected ? '已连接' : '未连接' }}
+                  </span>
+                </div>
+                <div class="status-card-label">连接状态</div>
+              </div>
+            </div>
+            
+            <div class="status-card">
+              <div class="status-card-icon">
+                <van-icon name="star-o" />
+              </div>
+              <div class="status-card-content">
+                <div class="status-card-value">{{ Math.round(behaviorStats.avgEngagement * 100) }}%</div>
+                <div class="status-card-label">参与度评分</div>
+              </div>
+            </div>
+            
+            <div class="status-card">
+              <div class="status-card-icon">
+                <van-icon name="clock-o" />
+              </div>
+              <div class="status-card-content">
+                <div class="status-card-value">{{ formatDuration(behaviorStats.avgDwellTime) }}</div>
+                <div class="status-card-label">平均停留时间</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 快速操作 -->
-        <div class="quick-actions">
-          <div class="section-title">
-            <van-icon name="apps-o" />
-            <span>快速操作</span>
+        <div class="dashboard-section quick-actions-section">
+          <div class="section-header">
+            <h2>
+              <van-icon name="apps-o" />
+              快速操作
+            </h2>
           </div>
           
-          <van-grid :column-num="2" :border="false">
-            <van-grid-item 
-              icon="chart-trending-o" 
-              text="详细分析"
-              @click="goToAnalysis"
-            />
-            <van-grid-item 
-              icon="records" 
-              text="分析记录"
-              @click="goToRecords"
-            />
-            <van-grid-item 
-              icon="setting-o" 
-              text="系统设置"
-              @click="goToSettings"
-            />
-            <van-grid-item 
-              icon="question-o" 
-              text="帮助文档"
-              @click="showHelp"
-            />
-          </van-grid>
+          <div class="action-buttons">
+            <div class="action-button" @click="goToAnalysis">
+              <div class="action-icon">
+                <van-icon name="chart-trending-o" />
+              </div>
+              <div class="action-label">详细分析</div>
+            </div>
+            
+            <div class="action-button" @click="goToRecords">
+              <div class="action-icon">
+                <van-icon name="records" />
+              </div>
+              <div class="action-label">分析记录</div>
+            </div>
+            
+            <div class="action-button" @click="goToSettings">
+              <div class="action-icon">
+                <van-icon name="setting-o" />
+              </div>
+              <div class="action-label">系统设置</div>
+            </div>
+            
+            <div class="action-button" @click="showHelp">
+              <div class="action-icon">
+                <van-icon name="question-o" />
+              </div>
+              <div class="action-label">帮助文档</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 底部导航 -->
-    <van-tabbar v-model="activeTab" @change="onTabChange">
+    <van-tabbar v-model="activeTab" @change="onTabChange" class="custom-tabbar">
       <van-tabbar-item icon="home-o" to="/">主页</van-tabbar-item>
       <van-tabbar-item icon="chart-trending-o" to="/analysis">分析</van-tabbar-item>
       <van-tabbar-item icon="records" to="/records">记录</van-tabbar-item>
@@ -238,6 +282,7 @@ import { useRouter } from 'vue-router'
 import { useAnalyticsStore } from '../stores/analytics'
 import { showToast, showFailToast, showDialog } from 'vant'
 import CameraCapture from '../components/CameraCapture.vue'
+import { authLogger } from '../utils/logger'
 
 const router = useRouter()
 const analyticsStore = useAnalyticsStore()
@@ -262,34 +307,30 @@ const {
 
 // 检查登录状态
 onMounted(async () => {
-  console.log('Home页面：开始加载')
+  authLogger.info('Home页面开始加载')
   
   try {
     // 检查localStorage中的用户信息
     const savedUser = localStorage.getItem('user')
-    console.log('Home页面：localStorage中的用户信息', savedUser)
+    authLogger.debug('localStorage中的用户信息', savedUser ? '存在' : '不存在')
     
     // 尝试恢复会话
-    console.log('Home页面：尝试恢复会话')
+    authLogger.debug('尝试恢复会话')
     const sessionRestored = await analyticsStore.restoreSession()
-    console.log('Home页面：会话恢复结果', sessionRestored)
-    
-    // 再次检查localStorage
-    const savedUserAfter = localStorage.getItem('user')
-    console.log('Home页面：恢复会话后的用户信息', savedUserAfter)
+    authLogger.info('会话恢复结果', sessionRestored)
     
     // 如果已登录，启动定时更新
     if (user.isLoggedIn) {
-      console.log('Home页面：用户已登录，启动定时更新')
+      authLogger.info('用户已登录，启动定时更新')
       startStatsUpdate()
     } else {
-      console.log('Home页面：用户未登录')
+      authLogger.debug('用户未登录')
     }
     
     // 注意：如果会话恢复失败，路由守卫会自动处理跳转
   } finally {
     sessionLoading.value = false
-    console.log('Home页面：加载完成')
+    authLogger.info('Home页面加载完成')
   }
 })
 
@@ -377,7 +418,10 @@ const onFrameAnalyzed = (stats) => {
 
 // 处理检测到的人脸
 const onFacesDetected = (faces) => {
-  console.log('检测到人脸:', faces.length)
+  // 只在开发环境打印人脸检测信息
+  if (process.env.NODE_ENV === 'development') {
+    console.log('检测到人脸:', faces.length)
+  }
   // 这里可以添加更多的人脸处理逻辑
 }
 
@@ -475,26 +519,104 @@ const getAgeColor = (ageGroup) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f7f8fa;
+  background-color: #f5f7fa;
+  position: relative;
 }
 
-.home-navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* 顶部导航样式 */
+.home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #4b79cf 0%, #7e57c2 100%);
   color: white;
+  position: relative;
+  z-index: 10;
 }
 
-.home-navbar :deep(.van-nav-bar__title) {
-  color: white;
+.status-indicator {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #969799;
+  margin-right: 6px;
+}
+
+.status-indicator.active .status-dot {
+  background-color: #07c160;
+  box-shadow: 0 0 10px rgba(7, 193, 96, 0.6);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(7, 193, 96, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(7, 193, 96, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(7, 193, 96, 0); }
+}
+
+.header-title {
+  text-align: center;
+}
+
+.header-title h1 {
+  font-size: 18px;
   font-weight: 600;
+  margin: 0;
 }
 
+.header-subtitle {
+  font-size: 12px;
+  margin: 0;
+  opacity: 0.8;
+}
+
+.connection-status {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.connection-status.connected {
+  background: rgba(7, 193, 96, 0.2);
+  border-color: rgba(7, 193, 96, 0.3);
+}
+
+.connection-status .van-icon {
+  font-size: 16px;
+  color: #ee0a24;
+}
+
+.connection-status.connected .van-icon {
+  color: #07c160;
+}
+
+/* 主要内容区域样式 */
 .home-content {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 60px;
+  padding-bottom: 80px;
 }
 
+/* 加载提示样式 */
 .loading-prompt {
   height: 100%;
   display: flex;
@@ -504,129 +626,280 @@ const getAgeColor = (ageGroup) => {
 
 .prompt-card {
   background: white;
-  border-radius: 16px;
-  padding: 40px 20px;
+  border-radius: 20px;
+  padding: 30px;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   max-width: 300px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.loading-animation {
+  margin-bottom: 20px;
 }
 
 .prompt-card h3 {
-  margin: 16px 0 8px;
+  margin: 0 0 10px;
   color: #323233;
   font-size: 18px;
 }
 
 .prompt-card p {
-  margin: 0 0 24px;
+  margin: 0;
   color: #646566;
   font-size: 14px;
 }
 
-.main-content {
-  /* 主要内容样式 */
-}
-
+/* 摄像头区域样式 */
 .camera-section {
   margin-bottom: 20px;
 }
 
-.stats-section {
+.camera-container {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, 
+    rgba(0, 0, 0, 0.3) 0%, 
+    rgba(0, 0, 0, 0) 30%, 
+    rgba(0, 0, 0, 0) 70%, 
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  pointer-events: none;
+}
+
+.analysis-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(7, 193, 96, 0.8);
+  border-radius: 20px;
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: white;
+  font-weight: 500;
+  animation: fadeInDown 0.5s ease-out;
+}
+
+/* 数据概览样式 */
+.dashboard-overview {
   margin-bottom: 20px;
 }
 
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #323233;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.stats-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.stats-card-header {
+.overview-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.stats-card-title {
-  font-size: 14px;
-  color: #646566;
-  font-weight: 500;
+.overview-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #323233;
+  margin: 0;
 }
 
-.stats-card-value {
+.last-update {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #969799;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.people-card { animation-delay: 0.1s; }
+.age-card { animation-delay: 0.2s; }
+.gender-card { animation-delay: 0.3s; }
+.conversion-card { animation-delay: 0.4s; }
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.people-card .stat-icon {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.age-card .stat-icon {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.gender-card .stat-icon {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.conversion-card .stat-icon {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+}
+
+.stat-icon .van-icon {
   font-size: 24px;
+  color: white;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 22px;
   font-weight: 700;
   color: #323233;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
-.stats-card-unit {
+.stat-unit {
   font-size: 14px;
   color: #646566;
   font-weight: 400;
 }
 
-.stats-card-footer {
+.stat-label {
   font-size: 12px;
   color: #969799;
-}
-
-.stats-card-label {
-  font-size: 12px;
-  color: #969799;
-}
-
-.gender-stats {
-  display: flex;
-  gap: 16px;
-}
-
-.gender-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.gender-label {
-  font-size: 12px;
-  color: #646566;
   margin-bottom: 4px;
 }
 
-.gender-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #323233;
+.stat-trend {
+  font-size: 11px;
+  color: #c8c9cc;
 }
 
-.chart-section {
+/* 性别分布样式 */
+.gender-distribution {
+  margin-bottom: 4px;
+}
+
+.gender-bar {
+  height: 10px;
+  background: #f2f3f5;
+  border-radius: 5px;
+  display: flex;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.male-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+}
+
+.female-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9a9e 0%, #fad0c4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 4px;
+}
+
+.gender-bar .van-icon {
+  font-size: 8px;
+  color: white;
+}
+
+.gender-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.male-value {
+  color: #4facfe;
+}
+
+.female-value {
+  color: #ff9a9e;
+}
+
+/* 图表区域样式 */
+.dashboard-section {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
   margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #323233;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header .van-icon {
+  font-size: 18px;
+}
+
+.section-badge {
+  background: #f2f3f5;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #646566;
 }
 
 .age-chart {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 8px 0;
 }
 
 .age-bar {
@@ -649,6 +922,16 @@ const getAgeColor = (ageGroup) => {
 
 .age-progress {
   flex: 1;
+  height: 8px;
+  background: #f2f3f5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.age-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
 }
 
 .age-count {
@@ -659,37 +942,139 @@ const getAgeColor = (ageGroup) => {
   font-weight: 500;
 }
 
-.status-section {
-  margin-bottom: 20px;
+/* 系统状态样式 */
+.status-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
 
-.quick-actions {
-  margin-bottom: 20px;
-}
-
-.quick-actions :deep(.van-grid-item__content) {
-  background: white;
+.status-card {
+  display: flex;
+  align-items: center;
+  padding: 12px;
   border-radius: 12px;
-  margin: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  background: #f8f9fa;
+  transition: transform 0.3s ease;
 }
 
-.quick-actions :deep(.van-grid-item__content:active) {
-  transform: scale(0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+.status-card:hover {
+  transform: translateY(-2px);
 }
 
-.quick-actions :deep(.van-icon) {
-  font-size: 24px;
-  color: #1989fa;
-  margin-bottom: 8px;
+.status-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f2f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
 }
 
-.quick-actions :deep(.van-grid-item__text) {
-  font-size: 12px;
+.status-card-icon .van-icon {
+  font-size: 20px;
+  color: #969799;
+}
+
+.connected-icon {
+  color: #07c160 !important;
+}
+
+.status-card-content {
+  flex: 1;
+}
+
+.status-card-value {
+  font-size: 16px;
+  font-weight: 600;
   color: #323233;
-  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.connected-text {
+  color: #07c160;
+}
+
+.status-card-label {
+  font-size: 12px;
+  color: #969799;
+}
+
+/* 快速操作样式 */
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.action-button {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.action-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.action-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.action-icon .van-icon {
+  font-size: 24px;
+  color: #4b79cf;
+}
+
+.action-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #323233;
+}
+
+/* 底部导航样式 */
+.custom-tabbar {
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 移动端适配 */
@@ -698,30 +1083,52 @@ const getAgeColor = (ageGroup) => {
     padding: 12px;
   }
   
-  .stats-grid {
+  .stats-cards {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
   
-  .stats-card {
+  .stat-card {
     padding: 12px;
   }
   
-  .stats-card-value {
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+  }
+  
+  .stat-icon .van-icon {
     font-size: 20px;
   }
   
-  .control-icon {
-    width: 50px;
-    height: 50px;
+  .stat-value {
+    font-size: 18px;
   }
   
-  .control-title {
-    font-size: 16px;
+  .status-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .action-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .action-icon .van-icon {
+    font-size: 20px;
+  }
+  
+  .action-label {
+    font-size: 12px;
   }
   
   .prompt-card {
-    padding: 30px 16px;
+    padding: 24px 16px;
   }
 }
 </style> 

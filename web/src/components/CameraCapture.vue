@@ -304,12 +304,26 @@ const sendFrameToBackend = async (blob) => {
       } else {
         // 如果WebSocket未连接，等待一段时间后重试
         if (window.wsService && window.wsService.getReadyState() === 'CONNECTING') {
-          console.log('WebSocket正在连接中，等待连接完成...')
+          // 只在开发环境打印连接状态
+          if (process.env.NODE_ENV === 'development') {
+            console.log('WebSocket正在连接中，等待连接完成...')
+          }
           setTimeout(() => {
             sendFrameToBackend(blob)
           }, 500)
         } else {
-          console.warn('WebSocket未连接，无法发送帧数据，状态:', window.wsService ? window.wsService.getReadyState() : 'wsService不存在')
+          // 只在开发环境打印警告
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('WebSocket未连接，无法发送帧数据，状态:', window.wsService ? window.wsService.getReadyState() : 'wsService不存在')
+          }
+          
+          // 如果wsService不存在，尝试重新建立连接
+          if (!window.wsService && props.userId) {
+            // 延迟一段时间后重试
+            setTimeout(() => {
+              sendFrameToBackend(blob)
+            }, 1000)
+          }
         }
       }
     }
@@ -346,7 +360,10 @@ const handleFrameResult = (data) => {
       emit('frame-analyzed', data.stats)
     }
     
-    console.log('处理帧分析结果:', data)
+    // 只在开发环境打印详细信息
+    if (process.env.NODE_ENV === 'development') {
+      console.log('处理帧分析结果:', data)
+    }
   } catch (error) {
     console.error('处理帧分析结果失败:', error)
   }
