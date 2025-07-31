@@ -1,215 +1,240 @@
 <template>
   <div class="analysis-container">
     <!-- 顶部导航 -->
-    <van-nav-bar 
-      title="数据分析"
-      left-arrow
-      @click-left="$router.back()"
-      class="analysis-navbar"
-    >
-      <template #right>
-        <van-icon 
-          name="refresh" 
-          @click="refreshData"
-          :class="{ 'rotating': loading }"
-        />
-      </template>
-    </van-nav-bar>
+    <div class="analysis-header">
+      <van-nav-bar 
+        title="数据分析"
+        left-arrow
+        @click-left="$router.back()"
+        class="analysis-navbar"
+      >
+        <template #right>
+          <van-icon 
+            name="refresh" 
+            @click="refreshData"
+            :class="{ 'rotating': loading }"
+          />
+        </template>
+      </van-nav-bar>
+    </div>
 
     <!-- 主要内容 -->
     <div class="analysis-content">
       <!-- 实时监控面板 -->
-      <div class="monitor-panel" v-if="analysisStatus.isRunning">
-        <div class="monitor-header">
-          <div class="monitor-title">
-            <van-icon name="video-o" />
+      <div class="dashboard-card monitor-panel" v-if="analysisStatus.isRunning">
+        <div class="card-header">
+          <div class="header-title">
+            <van-icon name="video-o" class="header-icon" />
             <span>实时监控</span>
           </div>
           <div class="monitor-status">
-            <van-tag type="success" size="small">运行中</van-tag>
+            <van-tag type="success" size="medium" round>运行中</van-tag>
             <span class="monitor-time">{{ formatTime(analysisStatus.lastUpdate) }}</span>
           </div>
         </div>
         
         <div class="monitor-stats">
-          <div class="monitor-item">
-            <div class="monitor-value">{{ analysisStatus.frameCount.toLocaleString() }}</div>
-            <div class="monitor-label">处理帧数</div>
+          <div class="stat-card">
+            <div class="stat-value highlight">{{ analysisStatus.frameCount.toLocaleString() }}</div>
+            <div class="stat-label">处理帧数</div>
           </div>
-          <div class="monitor-item">
-            <div class="monitor-value">{{ realtimeStats.activePeople }}</div>
-            <div class="monitor-label">当前人数</div>
+          <div class="stat-card">
+            <div class="stat-value highlight">{{ realtimeStats.activePeople }}</div>
+            <div class="stat-label">当前人数</div>
           </div>
-          <div class="monitor-item">
-            <div class="monitor-value">{{ realtimeStats.totalPeople }}</div>
-            <div class="monitor-label">总计人数</div>
+          <div class="stat-card">
+            <div class="stat-value highlight">{{ realtimeStats.totalPeople }}</div>
+            <div class="stat-label">总计人数</div>
           </div>
         </div>
       </div>
 
       <!-- 数据概览 -->
-      <div class="overview-section">
-        <div class="section-title">
-          <van-icon name="chart-trending-o" />
-          <span>数据概览</span>
-        </div>
-        
-        <div class="overview-grid">
-          <!-- 人流趋势 -->
-          <div class="overview-card">
-            <div class="card-header">
-              <h3>人流趋势</h3>
-              <van-icon name="friends-o" color="#1989fa" />
+      <div class="section-header">
+        <van-icon name="chart-trending-o" class="section-icon" />
+        <span>数据概览</span>
+      </div>
+      
+      <div class="dashboard-grid">
+        <!-- 人流趋势 -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title">
+              <span>人流趋势</span>
             </div>
-            <div class="card-content">
-              <div class="trend-chart">
-                <div class="trend-line">
-                  <div 
-                    v-for="(point, index) in peopleCountHistory" 
-                    :key="index"
-                    class="trend-point"
-                    :style="{ 
-                      left: `${(index / (peopleCountHistory.length - 1)) * 100}%`,
-                      bottom: `${(point / maxPeopleCount) * 100}%`
-                    }"
-                  ></div>
-                </div>
+            <van-icon name="friends-o" class="header-icon" />
+          </div>
+          <div class="card-content">
+            <div class="trend-chart">
+              <div class="trend-line">
+                <div 
+                  v-for="(point, index) in peopleCountHistory" 
+                  :key="index"
+                  class="trend-point"
+                  :style="{ 
+                    left: `${(index / (peopleCountHistory.length - 1)) * 100}%`,
+                    bottom: `${(point / maxPeopleCount) * 100}%`
+                  }"
+                ></div>
               </div>
-              <div class="trend-stats">
-                <div class="trend-stat">
-                  <span class="stat-label">峰值</span>
-                  <span class="stat-value">{{ maxPeopleCount }}</span>
-                </div>
-                <div class="trend-stat">
-                  <span class="stat-label">平均</span>
-                  <span class="stat-value">{{ avgPeopleCount }}</span>
-                </div>
+              <div class="trend-gradient"></div>
+            </div>
+            <div class="trend-stats">
+              <div class="stat-item">
+                <div class="stat-value">{{ maxPeopleCount }}</div>
+                <div class="stat-label">峰值</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{{ avgPeopleCount }}</div>
+                <div class="stat-label">平均</div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- 年龄分析 -->
-          <div class="overview-card">
-            <div class="card-header">
-              <h3>年龄分析</h3>
-              <van-icon name="user-o" color="#07c160" />
+        <!-- 年龄分析 -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title">
+              <span>年龄分析</span>
             </div>
-            <div class="card-content">
-              <div class="age-pie-chart">
-                <div class="pie-center">
-                  <div class="pie-value">{{ totalAgeAnalyzed }}</div>
-                  <div class="pie-label">总人数</div>
-                </div>
-                <div class="pie-segments">
-                  <div 
-                    v-for="(count, ageGroup) in ageDistribution" 
-                    :key="ageGroup"
-                    class="pie-segment"
-                    :style="{ 
-                      background: getAgeColor(ageGroup),
-                      width: `${(count / totalAgeAnalyzed) * 100}%`
-                    }"
-                  ></div>
-                </div>
-              </div>
-              <div class="age-legend">
+            <van-icon name="user-o" class="header-icon" />
+          </div>
+          <div class="card-content">
+            <div class="age-distribution">
+              <div class="age-segments">
                 <div 
                   v-for="(count, ageGroup) in ageDistribution" 
                   :key="ageGroup"
-                  class="legend-item"
+                  class="age-segment"
+                  :style="{ 
+                    width: `${(count / totalAgeAnalyzed) * 100}%`,
+                    background: getAgeColor(ageGroup)
+                  }"
                   v-show="count > 0"
                 >
-                  <div 
-                    class="legend-color" 
-                    :style="{ background: getAgeColor(ageGroup) }"
-                  ></div>
-                  <span class="legend-text">{{ ageGroup }}岁</span>
-                  <span class="legend-count">{{ count }}</span>
+                  <span v-if="(count / totalAgeAnalyzed) > 0.1">{{ Math.round((count / totalAgeAnalyzed) * 100) }}%</span>
+                </div>
+              </div>
+              <div class="total-count">
+                <span class="count-value">{{ totalAgeAnalyzed }}</span>
+                <span class="count-label">总人数</span>
+              </div>
+            </div>
+            <div class="age-legend">
+              <div 
+                v-for="(count, ageGroup) in ageDistribution" 
+                :key="ageGroup"
+                class="legend-item"
+                v-show="count > 0"
+              >
+                <div 
+                  class="legend-color" 
+                  :style="{ background: getAgeColor(ageGroup) }"
+                ></div>
+                <span class="legend-text">{{ ageGroup }}岁</span>
+                <span class="legend-count">{{ count }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 性别分布 -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title">
+              <span>性别分布</span>
+            </div>
+            <van-icon name="balance-o" class="header-icon" />
+          </div>
+          <div class="card-content">
+            <div class="gender-chart">
+              <div class="gender-ratio">
+                <div class="gender-male" :style="{ width: `${genderDistribution.male}%` }">
+                  <van-icon name="manager" />
+                  <span>{{ genderDistribution.male }}%</span>
+                </div>
+                <div class="gender-female" :style="{ width: `${genderDistribution.female}%` }">
+                  <span>{{ genderDistribution.female }}%</span>
+                  <van-icon name="contact" />
+                </div>
+              </div>
+              <div class="gender-counts">
+                <div class="gender-count male">
+                  <span class="count-label">男性</span>
+                  <span class="count-value">{{ realtimeStats.maleCount }}人</span>
+                </div>
+                <div class="gender-count female">
+                  <span class="count-label">女性</span>
+                  <span class="count-value">{{ realtimeStats.femaleCount }}人</span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- 性别分布 -->
-          <div class="overview-card">
-            <div class="card-header">
-              <h3>性别分布</h3>
-              <van-icon name="balance-o" color="#ff976a" />
+        <!-- 行为分析 -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title">
+              <span>行为分析</span>
             </div>
-            <div class="card-content">
-              <div class="gender-chart">
-                <div class="gender-bar">
-                  <div class="gender-segment male" :style="{ width: `${genderDistribution.male}%` }">
-                    <span v-if="genderDistribution.male > 15">{{ genderDistribution.male }}%</span>
-                  </div>
-                  <div class="gender-segment female" :style="{ width: `${genderDistribution.female}%` }">
-                    <span v-if="genderDistribution.female > 15">{{ genderDistribution.female }}%</span>
-                  </div>
-                </div>
-              </div>
-              <div class="gender-legend">
-                <div class="legend-item">
-                  <div class="legend-color male"></div>
-                  <span>男性 {{ realtimeStats.maleCount }}人</span>
-                </div>
-                <div class="legend-item">
-                  <div class="legend-color female"></div>
-                  <span>女性 {{ realtimeStats.femaleCount }}人</span>
-                </div>
-              </div>
-            </div>
+            <van-icon name="shopping-cart-o" class="header-icon" />
           </div>
-
-          <!-- 行为分析 -->
-          <div class="overview-card">
-            <div class="card-header">
-              <h3>行为分析</h3>
-              <van-icon name="shopping-cart-o" color="#ee0a24" />
-            </div>
-            <div class="card-content">
-              <div class="behavior-metrics">
-                <div class="metric-item">
-                  <div class="metric-circle">
-                    <van-circle
-                      :current-rate="behaviorStats.conversionRate"
-                      :rate="100"
-                      :speed="100"
-                      :stroke-width="60"
-                      color="#ee0a24"
-                      layer-color="#f7f8fa"
-                      :text="Math.round(behaviorStats.conversionRate) + '%'"
-                    />
-                  </div>
-                  <div class="metric-label">转化率</div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-circle">
-                    <van-circle
-                      :current-rate="behaviorStats.avgEngagement * 100"
-                      :rate="100"
-                      :speed="100"
-                      :stroke-width="60"
-                      color="#07c160"
-                      layer-color="#f7f8fa"
-                      :text="Math.round(behaviorStats.avgEngagement * 100) + '%'"
-                    />
-                  </div>
-                  <div class="metric-label">参与度</div>
+          <div class="card-content">
+            <div class="behavior-metrics">
+              <div class="metric-card">
+                <div class="metric-circle">
+                  <van-circle
+                    :current-rate="behaviorStats.conversionRate"
+                    :rate="100"
+                    :speed="100"
+                    :stroke-width="10"
+                    :size="80"
+                    color="linear-gradient(to right, #1989fa, #07c160)"
+                    layer-color="#f2f3f5"
+                  >
+                    <div class="circle-content">
+                      <span class="circle-value">{{ Math.round(behaviorStats.conversionRate) }}%</span>
+                      <span class="circle-label">转化率</span>
+                    </div>
+                  </van-circle>
                 </div>
               </div>
-              <div class="behavior-stats">
-                <div class="behavior-stat">
-                  <span class="stat-label">购物者</span>
-                  <span class="stat-value">{{ behaviorStats.shoppers }}</span>
+              <div class="metric-card">
+                <div class="metric-circle">
+                  <van-circle
+                    :current-rate="behaviorStats.avgEngagement * 100"
+                    :rate="100"
+                    :speed="100"
+                    :stroke-width="10"
+                    :size="80"
+                    color="linear-gradient(to right, #ff976a, #ee0a24)"
+                    layer-color="#f2f3f5"
+                  >
+                    <div class="circle-content">
+                      <span class="circle-value">{{ Math.round(behaviorStats.avgEngagement * 100) }}%</span>
+                      <span class="circle-label">参与度</span>
+                    </div>
+                  </van-circle>
                 </div>
-                <div class="behavior-stat">
-                  <span class="stat-label">浏览者</span>
-                  <span class="stat-value">{{ behaviorStats.browsers }}</span>
-                </div>
-                <div class="behavior-stat">
-                  <span class="stat-label">停留时间</span>
-                  <span class="stat-value">{{ formatDuration(behaviorStats.avgDwellTime) }}</span>
-                </div>
+              </div>
+            </div>
+            <div class="behavior-stats">
+              <div class="behavior-stat">
+                <van-icon name="shopping-cart-o" />
+                <span class="stat-label">购物者</span>
+                <span class="stat-value">{{ behaviorStats.shoppers }}</span>
+              </div>
+              <div class="behavior-stat">
+                <van-icon name="eye-o" />
+                <span class="stat-label">浏览者</span>
+                <span class="stat-value">{{ behaviorStats.browsers }}</span>
+              </div>
+              <div class="behavior-stat">
+                <van-icon name="clock-o" />
+                <span class="stat-label">停留时间</span>
+                <span class="stat-value">{{ formatDuration(behaviorStats.avgDwellTime) }}</span>
               </div>
             </div>
           </div>
@@ -217,12 +242,12 @@
       </div>
 
       <!-- 详细数据表 -->
-      <div class="detail-section">
-        <div class="section-title">
-          <van-icon name="records" />
-          <span>详细数据</span>
-        </div>
-        
+      <div class="section-header">
+        <van-icon name="records" class="section-icon" />
+        <span>详细数据</span>
+      </div>
+      
+      <div class="detail-table">
         <van-cell-group inset>
           <van-cell 
             title="实时人数" 
@@ -242,12 +267,12 @@
           <van-cell 
             title="男性比例" 
             :value="genderDistribution.male + '%'"
-            icon="user-o"
+            icon="manager"
           />
           <van-cell 
             title="女性比例" 
             :value="genderDistribution.female + '%'"
-            icon="user-o"
+            icon="contact"
           />
           <van-cell 
             title="购物转化率" 
@@ -274,7 +299,7 @@
     </div>
 
     <!-- 底部导航 -->
-    <van-tabbar v-model="activeTab" @change="onTabChange">
+    <van-tabbar v-model="activeTab" @change="onTabChange" class="analysis-tabbar">
       <van-tabbar-item icon="home-o" to="/">主页</van-tabbar-item>
       <van-tabbar-item icon="chart-trending-o" to="/analysis">分析</van-tabbar-item>
       <van-tabbar-item icon="records" to="/records">记录</van-tabbar-item>
@@ -419,21 +444,31 @@ const getAgeColor = (ageGroup) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--background-color);
+  background-color: #f7f8fa;
+  color: #323233;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.analysis-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .analysis-navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(120deg, #3a7bd5, #00d2ff);
+  box-shadow: 0 2px 12px rgba(58, 123, 213, 0.2);
 }
 
 .analysis-navbar :deep(.van-nav-bar__title) {
   color: white;
   font-weight: 600;
+  font-size: 18px;
 }
 
 .analysis-navbar :deep(.van-icon) {
   color: white;
+  font-size: 20px;
 }
 
 .rotating {
@@ -449,31 +484,67 @@ const getAgeColor = (ageGroup) => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 60px;
+  padding-bottom: 70px;
 }
 
-.monitor-panel {
+/* 卡片通用样式 */
+.dashboard-card {
   background: white;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-light);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-.monitor-header {
+.dashboard-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.monitor-title {
+.header-title {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-color);
+  color: #323233;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: #3a7bd5;
+}
+
+.card-content {
+  padding: 16px;
+}
+
+/* 实时监控面板 */
+.monitor-panel {
+  background: linear-gradient(135deg, #3a7bd5 0%, #00d2ff 100%);
+  color: white;
+  margin-bottom: 24px;
+}
+
+.monitor-panel .card-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.monitor-panel .header-title {
+  color: white;
+}
+
+.monitor-panel .header-icon {
+  color: white;
 }
 
 .monitor-status {
@@ -483,82 +554,71 @@ const getAgeColor = (ageGroup) => {
 }
 
 .monitor-time {
-  font-size: 12px;
-  color: var(--text-color-2);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .monitor-stats {
   display: flex;
   justify-content: space-around;
+  padding: 16px 0;
 }
 
-.monitor-item {
+.stat-card {
   text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 80px;
 }
 
-.monitor-value {
-  font-size: 20px;
+.stat-value {
+  font-size: 18px;
   font-weight: 700;
-  color: var(--primary-color);
   margin-bottom: 4px;
 }
 
-.monitor-label {
+.stat-value.highlight {
+  font-size: 24px;
+  color: white;
+}
+
+.stat-label {
   font-size: 12px;
-  color: var(--text-color-2);
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.overview-section {
-  margin-bottom: 20px;
-}
-
-.section-title {
+/* 区块标题 */
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
-  font-size: 16px;
+  margin: 24px 0 16px;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--text-color);
+  color: #323233;
 }
 
-.overview-grid {
+.section-icon {
+  font-size: 20px;
+  color: #3a7bd5;
+}
+
+/* 仪表盘网格 */
+.dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
-.overview-card {
-  background: white;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: var(--shadow-light);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.card-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0;
-}
-
-.card-content {
-  /* 内容样式 */
-}
-
+/* 人流趋势 */
 .trend-chart {
-  height: 80px;
+  height: 100px;
   position: relative;
-  background: var(--background-color);
+  background: #f7f8fa;
   border-radius: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
 }
 
 .trend-line {
@@ -568,11 +628,35 @@ const getAgeColor = (ageGroup) => {
 
 .trend-point {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  background: var(--primary-color);
+  width: 8px;
+  height: 8px;
+  background: #3a7bd5;
   border-radius: 50%;
   transform: translate(-50%, 50%);
+  z-index: 2;
+}
+
+.trend-point::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background: rgba(58, 123, 213, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.trend-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(to top, rgba(58, 123, 213, 0.1), transparent);
+  z-index: 1;
 }
 
 .trend-stats {
@@ -580,60 +664,70 @@ const getAgeColor = (ageGroup) => {
   justify-content: space-around;
 }
 
-.trend-stat {
+.stat-item {
   text-align: center;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 80px;
 }
 
-.stat-label {
-  font-size: 12px;
-  color: var(--text-color-2);
-  display: block;
+.stat-item .stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #3a7bd5;
   margin-bottom: 4px;
 }
 
-.stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-color);
+.stat-item .stat-label {
+  font-size: 12px;
+  color: #969799;
 }
 
-.age-pie-chart {
-  position: relative;
+/* 年龄分析 */
+.age-distribution {
   margin-bottom: 16px;
 }
 
-.pie-center {
-  text-align: center;
-  margin-bottom: 12px;
+.age-segments {
+  display: flex;
+  height: 24px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
 }
 
-.pie-value {
+.age-segment {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.total-count {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.count-value {
   font-size: 24px;
   font-weight: 700;
-  color: var(--text-color);
+  color: #323233;
+  display: block;
 }
 
-.pie-label {
+.count-label {
   font-size: 12px;
-  color: var(--text-color-2);
-}
-
-.pie-segments {
-  display: flex;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 12px;
-}
-
-.pie-segment {
-  height: 100%;
-  transition: all 0.3s ease;
+  color: #969799;
 }
 
 .age-legend {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 8px;
 }
 
@@ -651,167 +745,222 @@ const getAgeColor = (ageGroup) => {
 }
 
 .legend-text {
-  color: var(--text-color-2);
+  color: #969799;
   flex: 1;
 }
 
 .legend-count {
-  color: var(--text-color);
+  color: #323233;
   font-weight: 500;
 }
 
+/* 性别分布 */
 .gender-chart {
-  margin-bottom: 16px;
+  padding: 8px 0;
 }
 
-.gender-bar {
+.gender-ratio {
   display: flex;
-  height: 24px;
-  border-radius: 12px;
+  height: 40px;
+  border-radius: 20px;
   overflow: hidden;
-  background: var(--background-color);
+  margin-bottom: 16px;
+  background: #f7f8fa;
 }
 
-.gender-segment {
+.gender-male, .gender-female {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: white;
+  gap: 8px;
   transition: all 0.3s ease;
 }
 
-.gender-segment.male {
-  background: linear-gradient(135deg, #1989fa 0%, #1976d2 100%);
+.gender-male {
+  background: linear-gradient(to right, #3a7bd5, #00d2ff);
 }
 
-.gender-segment.female {
-  background: linear-gradient(135deg, #ee0a24 0%, #f56565 100%);
+.gender-female {
+  background: linear-gradient(to left, #ff6b6b, #ff9f43);
 }
 
-.gender-legend {
+.gender-counts {
   display: flex;
   justify-content: space-around;
 }
 
-.gender-legend .legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-color-2);
-}
-
-.gender-legend .legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-}
-
-.gender-legend .legend-color.male {
-  background: #1989fa;
-}
-
-.gender-legend .legend-color.female {
-  background: #ee0a24;
-}
-
-.behavior-metrics {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 16px;
-}
-
-.metric-item {
+.gender-count {
   text-align: center;
-}
-
-.metric-circle {
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 8px;
-}
-
-.metric-label {
-  font-size: 12px;
-  color: var(--text-color-2);
-}
-
-.behavior-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-}
-
-.behavior-stat {
-  text-align: center;
-  padding: 8px;
-  background: var(--background-color);
+  padding: 12px;
   border-radius: 8px;
+  min-width: 100px;
 }
 
-.behavior-stat .stat-label {
+.gender-count.male {
+  background: rgba(58, 123, 213, 0.1);
+}
+
+.gender-count.female {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.count-label {
   font-size: 12px;
-  color: var(--text-color-2);
+  color: #969799;
   display: block;
   margin-bottom: 4px;
 }
 
-.behavior-stat .stat-value {
-  font-size: 14px;
+.count-value {
+  font-size: 16px;
   font-weight: 600;
-  color: var(--text-color);
 }
 
-.detail-section {
+.gender-count.male .count-value {
+  color: #3a7bd5;
+}
+
+.gender-count.female .count-value {
+  color: #ff6b6b;
+}
+
+/* 行为分析 */
+.behavior-metrics {
+  display: flex;
+  justify-content: space-around;
   margin-bottom: 20px;
 }
 
+.metric-card {
+  text-align: center;
+}
+
+.metric-circle {
+  margin: 0 auto;
+  position: relative;
+}
+
+.circle-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.circle-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #323233;
+  display: block;
+}
+
+.circle-label {
+  font-size: 12px;
+  color: #969799;
+}
+
+.behavior-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.behavior-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.behavior-stat .van-icon {
+  font-size: 24px;
+  color: #3a7bd5;
+  margin-bottom: 8px;
+}
+
+.behavior-stat .stat-label {
+  font-size: 12px;
+  color: #969799;
+  margin-bottom: 4px;
+}
+
+.behavior-stat .stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #323233;
+}
+
+/* 详细数据表 */
+.detail-table {
+  margin-bottom: 24px;
+}
+
+.detail-table :deep(.van-cell) {
+  align-items: center;
+}
+
+.detail-table :deep(.van-cell__title) {
+  flex: 3;
+}
+
+.detail-table :deep(.van-cell__value) {
+  flex: 2;
+  color: #3a7bd5;
+  font-weight: 500;
+}
+
+.detail-table :deep(.van-icon) {
+  font-size: 18px;
+  color: #3a7bd5;
+}
+
+/* 底部导航 */
+.analysis-tabbar {
+  box-shadow: 0 -1px 10px rgba(0, 0, 0, 0.05);
+}
+
+.analysis-tabbar :deep(.van-tabbar-item--active) {
+  color: #3a7bd5;
+}
+
 /* 移动端适配 */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
   .analysis-content {
     padding: 12px;
   }
   
-  .overview-card {
-    padding: 12px;
+  .section-header {
+    margin: 16px 0 12px;
   }
   
-  .monitor-panel {
-    padding: 12px;
+  .behavior-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .age-legend {
+    grid-template-columns: 1fr 1fr;
   }
   
   .monitor-stats {
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   
-  .monitor-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--background-color);
-    border-radius: 8px;
-  }
-  
-  .monitor-value {
-    font-size: 16px;
-    margin-bottom: 0;
-  }
-  
-  .trend-chart {
-    height: 60px;
-  }
-  
-  .pie-value {
-    font-size: 20px;
-  }
-  
-  .metric-circle {
-    width: 50px;
-    height: 50px;
+  .stat-card {
+    flex: 1;
+    min-width: 100px;
   }
 }
 </style> 
