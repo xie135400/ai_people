@@ -20,6 +20,10 @@ uvicorn
 # 数据处理
 pandas
 
+# 数据库
+pymysql
+cryptography
+
 # 跟踪算法
 deep_sort_realtime
 

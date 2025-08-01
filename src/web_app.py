@@ -48,12 +48,13 @@ class UserSession:
         self.created_at = datetime.now()
         self.last_activity = datetime.now()
         
-    def start_analysis(self):
+    def start_analysis(self, db_config: Dict = None):
         """启动分析"""
         if not self.is_running:
             self.analyzer = CompleteAnalyzer(
                 session_name=f"{self.username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 use_insightface=True,
+                db_config=db_config,
                 save_interval=10
             )
             self.is_running = True
@@ -124,10 +125,11 @@ class UserSession:
 class WebApp:
     """AI人流分析Web应用"""
     
-    def __init__(self, db_path: str = "data/analytics.db"):
+    def __init__(self, db_config: Dict = None):
         """初始化Web应用"""
         self.app = FastAPI(title="AI人流分析系统", version="1.0.0")
-        self.db = DatabaseManager(db_path)
+        self.db_config = db_config
+        self.db = DatabaseManager(db_config)
         
         # 用户会话管理
         self.user_sessions: Dict[str, UserSession] = {}
@@ -341,7 +343,7 @@ class WebApp:
             try:
                 session = self.user_sessions[user_id]
                 if not session.is_running:
-                    session.start_analysis()
+                    session.start_analysis(db_config=self.db_config)
                     return {"status": "success", "message": f"{session.username} 分析已开始"}
                 else:
                     return {"status": "info", "message": f"{session.username} 分析已在运行中"}
@@ -566,7 +568,7 @@ class WebApp:
                 
                 # 使用分析器处理帧
                 if session.analyzer is None:
-                    session.analyzer = CompleteAnalyzer()
+                    session.analyzer = CompleteAnalyzer(db_config=self.db_config)
                 
                 result = session.analyzer.analyze_frame(frame)
                 

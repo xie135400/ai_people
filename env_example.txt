@@ -1,0 +1,30 @@
+# MySQL数据库配置
+# 复制此文件为 .env 并修改相应的值
+
+# 数据库主机地址
+DB_HOST=localhost
+
+# 数据库端口
+DB_PORT=3306
+
+# 数据库用户名
+DB_USER=root
+
+# 数据库密码
+DB_PASSWORD=
+
+# 数据库名称
+DB_NAME=ai_people_analytics
+
+# 数据库字符集
+DB_CHARSET=utf8mb4
+
+# 应用程序配置
+# 是否启用HTTPS
+ENABLE_HTTPS=false
+
+# Web服务器端口
+WEB_PORT=8000
+
+# 是否启用调试模式
+DEBUG=false 

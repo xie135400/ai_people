@@ -27,7 +27,7 @@ class CompleteAnalyzer:
     """完整的AI人流分析系统"""
     
     def __init__(self, session_name: str = None, use_insightface: bool = True,
-                 db_path: str = "data/analytics.db", save_interval: int = 30,
+                 db_config: Dict = None, save_interval: int = 30,
                  record_interval: int = 300, auto_record: bool = True,
                  frame_width: int = 640, frame_height: int = 480):
         """
@@ -36,7 +36,7 @@ class CompleteAnalyzer:
         Args:
             session_name: 会话名称
             use_insightface: 是否使用InsightFace（默认True，使用高精度模式）
-            db_path: 数据库路径
+            db_config: 数据库配置字典，如果为None则使用默认MySQL配置
             save_interval: 数据保存间隔（秒）
             record_interval: 分析记录生成间隔（秒），默认5分钟
             auto_record: 是否自动生成分析记录
@@ -47,7 +47,7 @@ class CompleteAnalyzer:
         self.persistent_analyzer = PersistentAnalyzer(
             session_name=session_name,
             use_insightface=use_insightface,
-            db_path=db_path,
+            db_config=db_config,
             save_interval=save_interval,
             record_interval=record_interval
         )

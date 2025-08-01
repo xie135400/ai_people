@@ -40,7 +40,7 @@ class FaceInfo:
 class AgeHistory:
     """年龄历史记录，用于多帧融合"""
     ages: deque = field(default_factory=lambda: deque(maxlen=20))
-    confidences: deque = field(default_factory=lambda: deque(maxlen=20))
+    confidences: deque = field(default_fa cctory=lambda: deque(maxlen=20))
     qualities: deque = field(default_factory=lambda: deque(maxlen=20))
     
     def add_prediction(self, age: float, confidence: float, quality: float):

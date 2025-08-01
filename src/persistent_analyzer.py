@@ -26,7 +26,7 @@ class PersistentAnalyzer:
     """持久化分析器"""
     
     def __init__(self, session_name: str = None, use_insightface: bool = True, 
-                 db_path: str = "data/analytics.db", save_interval: int = 30,
+                 db_config: Dict = None, save_interval: int = 30,
                  record_interval: int = 300):
         """
         初始化持久化分析器
@@ -34,7 +34,7 @@ class PersistentAnalyzer:
         Args:
             session_name: 会话名称
             use_insightface: 是否使用InsightFace（默认True，使用高精度模式）
-            db_path: 数据库路径
+            db_config: 数据库配置字典，如果为None则使用默认MySQL配置
             save_interval: 数据保存间隔（秒）
             record_interval: 分析记录生成间隔（秒），默认5分钟
         """
@@ -42,7 +42,7 @@ class PersistentAnalyzer:
         self.analyzer = IntegratedAnalyzer(use_insightface=use_insightface)
         
         # 初始化数据库
-        self.db = DatabaseManager(db_path)
+        self.db = DatabaseManager(db_config)
         
         # 创建会话
         if session_name is None:

@@ -36,7 +36,13 @@ def main():
     try:
         # 导入并运行Web应用
         from web_app import WebApp
-        web_app = WebApp()
+        from db_config import DatabaseConfig
+        
+        # 获取数据库配置
+        db_config = DatabaseConfig.get_pymysql_config()
+        print(f"数据库配置: {db_config['host']}:{db_config['port']}/{db_config['database']}")
+        
+        web_app = WebApp(db_config=db_config)
         web_app.run(host=args.host, port=args.port, use_ssl=not args.no_ssl)
         
     except Exception as e:
